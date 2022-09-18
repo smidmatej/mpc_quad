@@ -1,12 +1,12 @@
 
 import numpy as np
-import utils
+from  utils import skew_symmetric, quaternion_to_euler, unit_quat, v_dot_q
 
 
 
 class Quadrotor3D:
 
-	def __init__(self):
+	def __init__(self, payload=False):
 		"""
 		Initialization of the 3D quadrotor class
 		:param noisy: Whether noise is used in the simulation
@@ -61,6 +61,9 @@ class Quadrotor3D:
 		self.rotor_drag = np.array([self.rotor_drag_xy, self.rotor_drag_xy, self.rotor_drag_z])[:, np.newaxis]
 		self.aero_drag = 0.08
 
+		self.payload_mass = 0.3  # kg
+		self.payload_mass = self.payload_mass * payload
+
 
 	def set_state(self, *args):
 		assert len(args) == 1 and len(args[0]) == 13
@@ -75,8 +78,13 @@ class Quadrotor3D:
 
 		if quaternion and not stacked:
 			return [self.pos, self.angle, self.vel, self.a_rate]
+		if quaternion and stacked:
+			return [self.pos[0], self.pos[1], self.pos[2], self.angle[0], self.angle[1], self.angle[2], self.angle[3],
+					self.vel[0], self.vel[1], self.vel[2], self.a_rate[0], self.a_rate[1], self.a_rate[2]]
 
 		angle = quaternion_to_euler(self.angle)
+
+
 		if not quaternion and stacked:
 			return [self.pos[0], self.pos[1], self.pos[2], angle[0], angle[1], angle[2],
 				self.vel[0], self.vel[1], self.vel[2], self.a_rate[0], self.a_rate[1], self.a_rate[2]]
@@ -93,9 +101,13 @@ class Quadrotor3D:
 
 		:param u: 4-dimensional vector with components between [0.0, 1.0] that represent the activation of each motor.
 		:param dt: time differential
-			"""
+		"""
+		f_d = np.zeros((3, 1))
+		t_d = np.zeros((3, 1))
+
 
 		x = self.get_state(quaternion=True, stacked=False)
+
 
 		# RK4 integration
 		k1 = [self.f_pos(x), self.f_att(x), self.f_vel(x, self.u, f_d), self.f_rate(x, self.u, t_d)]
@@ -107,6 +119,7 @@ class Quadrotor3D:
 		k4 = [self.f_pos(x_aux), self.f_att(x_aux), self.f_vel(x_aux, self.u, f_d), self.f_rate(x_aux, self.u, t_d)]
 		x = [x[i] + dt * (1.0 / 6.0 * k1[i] + 2.0 / 6.0 * k2[i] + 2.0 / 6.0 * k3[i] + 1.0 / 6.0 * k4[i]) for i in
 		     range(4)]
+
 
 		# Ensure unit quaternion
 		x[1] = unit_quat(x[1])

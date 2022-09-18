@@ -12,6 +12,7 @@ def euler_to_quaternion(roll, pitch, yaw):
 
 
 def quaternion_to_euler(q):
+	
 	q = pyquaternion.Quaternion(w=q[0], x=q[1], y=q[2], z=q[3])
 	yaw, pitch, roll = q.yaw_pitch_roll
 	return [roll, pitch, yaw]
@@ -36,3 +37,19 @@ def unit_quat(q):
 	:return: the unit quaternion in the same data format as the original one
 	"""
 	q_norm = np.sqrt(np.sum(q ** 2))
+	return q/q_norm
+
+def v_dot_q(v, q):
+	rot_mat = q_to_rot_mat(q)
+
+	return rot_mat.dot(v)
+
+def q_to_rot_mat(q):
+	
+	qw, qx, qy, qz = q[0], q[1], q[2], q[3]
+	rot_mat = np.array([
+		[1 - 2 * (qy ** 2 + qz ** 2), 2 * (qx * qy - qw * qz), 2 * (qx * qz + qw * qy)],
+		[2 * (qx * qy + qw * qz), 1 - 2 * (qx ** 2 + qz ** 2), 2 * (qy * qz - qw * qx)],
+		[2 * (qx * qz - qw * qy), 2 * (qy * qz + qw * qx), 1 - 2 * (qx ** 2 + qy ** 2)]])
+
+	return rot_mat
