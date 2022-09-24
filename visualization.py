@@ -375,8 +375,8 @@ def draw_drone_simulation(art_pack, x_trajectory, quad, targets, targets_reached
     
     def draw_fading_traj(traj, traj_artists):
         traj = np.squeeze(np.array(traj))
-        for j in range(min(traj.shape[0] - 1, len(traj_artists))):
-            traj_artists[j].set_data([traj[j, 0], traj[j + 1, 0]], [traj[j, 1], traj[j + 1, 1]])
+        #for j in range(min(traj.shape[0] - 1, len(traj_artists))):
+            #traj_artists[j].set_data([traj[j, 0], traj[j + 1, 0]], [traj[j, 1], traj[j + 1, 1]])
             #traj_artists[j].set_3d_properties([traj[j, 2], traj[j + 1, 2]])
             
 
