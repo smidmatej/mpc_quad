@@ -30,10 +30,13 @@ def update_points(idx, x, line, quad):
     line.set_data(x[:idx,0], x[:idx,1])
     line.set_3d_properties(x[:idx,2])
     
-    
+    '''
     offsets = (x[idx,0], x[idx,1], x[idx,2])
     print(offsets)
-    quad._offsets3d = offsets
+    plt.plot(x[idx,0], x[idx,1], x[idx,2])
+    print(ax.collections[-1].remove())
+    '''
+    #quad._offsets3d = offsets
 
     
     
