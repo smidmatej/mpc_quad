@@ -257,3 +257,40 @@ class quad_optimizer:
 	    x_target[:,3] = 1
 	    x_target[:,0:3] = p_target
 	    return x_target
+
+
+'''
+def linearized_quad_dynamics():
+    """
+    Jacobian J matrix of the linearized dynamics specified in the function quad_dynamics. J[i, j] corresponds to
+    the partial derivative of f_i(x) wrt x(j).
+
+    :return: a CasADi symbolic function that calculates the 13 x 13 Jacobian matrix of the linearized simplified
+    quadrotor dynamics
+    """
+
+    jac = cs.MX(state_dim, state_dim)
+
+    # Position derivatives
+    jac[0:3, 7:10] = cs.diag(cs.MX.ones(3))
+
+    # Angle derivatives
+    jac[3:7, 3:7] = skew_symmetric(r) / 2
+    jac[3, 10:] = 1 / 2 * cs.horzcat(-q[1], -q[2], -q[3])
+    jac[4, 10:] = 1 / 2 * cs.horzcat(q[0], -q[3], q[2])
+    jac[5, 10:] = 1 / 2 * cs.horzcat(q[3], q[0], -q[1])
+    jac[6, 10:] = 1 / 2 * cs.horzcat(-q[2], q[1], q[0])
+
+    # Velocity derivatives
+    a_u = (u[0] + u[1] + u[2] + u[3]) * quad.max_thrust / quad.mass
+    jac[7, 3:7] = 2 * cs.horzcat(a_u * q[2], a_u * q[3], a_u * q[0], a_u * q[1])
+    jac[8, 3:7] = 2 * cs.horzcat(-a_u * q[1], -a_u * q[0], a_u * q[3], a_u * q[2])
+    jac[9, 3:7] = 2 * cs.horzcat(0, -2 * a_u * q[1], -2 * a_u * q[1], 0)
+
+    # Rate derivatives
+    jac[10, 10:] = (quad.J[1] - quad.J[2]) / quad.J[0] * cs.horzcat(0, r[2], r[1])
+    jac[11, 10:] = (quad.J[2] - quad.J[0]) / quad.J[1] * cs.horzcat(r[2], 0, r[0])
+    jac[12, 10:] = (quad.J[0] - quad.J[1]) / quad.J[2] * cs.horzcat(r[1], r[0], 0)
+
+    return cs.Function('J', [x, u], [jac])
+'''

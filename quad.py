@@ -109,7 +109,8 @@ class Quadrotor3D:
 
 		x = self.get_state(quaternion=True, stacked=False)
 
-
+		#print('u: ' + str(self.u))
+		#print('dv: ' + str(self.f_vel(x, self.u, f_d)))
 		# RK4 integration
 		k1 = [self.f_pos(x), self.f_att(x), self.f_vel(x, self.u, f_d), self.f_rate(x, self.u, t_d)]
 		x_aux = [x[i] + dt / 2 * k1[i] for i in range(4)]
@@ -126,6 +127,7 @@ class Quadrotor3D:
 		x[1] = unit_quat(x[1])
 
 		self.pos, self.angle, self.vel, self.a_rate = x
+		#print(self.pos)
 
 	def f_pos(self, x):
 		"""
@@ -158,7 +160,8 @@ class Quadrotor3D:
 		:return: 3D velocity differential increment (vector): d[vel_x; vel_y; vel_z]/dt
 		"""
 
-		a_thrust = np.array([[0], [0], [np.sum(u)]]) / self.mass
+		f_thrust = u * self.max_thrust
+		a_thrust = np.array([[0], [0], [np.sum(f_thrust)]]) / self.mass
 
 
 		a_drag = np.zeros((3, 1))
