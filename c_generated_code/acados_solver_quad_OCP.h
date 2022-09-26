@@ -63,7 +63,7 @@
 #define QUAD_OCP_NY0    17
 #define QUAD_OCP_NY     17
 #define QUAD_OCP_NYN    13
-#define QUAD_OCP_N      100
+#define QUAD_OCP_N      25
 #define QUAD_OCP_NH     0
 #define QUAD_OCP_NPHI   0
 #define QUAD_OCP_NHN    0

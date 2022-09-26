@@ -180,10 +180,10 @@ class Quadrotor3D:
 		:param t_d: disturbance torque (3D)
 		:return: angular rate differential increment (scalar): dr/dt
 		"""
-
+		f_thrust = u*self.max_thrust
 		rate = x[3]
 		return np.array([
-			1 / self.J[0] * (u.dot(self.y_f) + t_d[0] + (self.J[1] - self.J[2]) * rate[1] * rate[2]),
-			1 / self.J[1] * (-u.dot(self.x_f) + t_d[1] + (self.J[2] - self.J[0]) * rate[2] * rate[0]),
-			1 / self.J[2] * (u.dot(self.z_l_tau) + t_d[2] + (self.J[0] - self.J[1]) * rate[0] * rate[1])
+			1 / self.J[0] * (f_thrust.dot(self.y_f) + t_d[0] + (self.J[1] - self.J[2]) * rate[1] * rate[2]),
+			1 / self.J[1] * (-f_thrust.dot(self.x_f) + t_d[1] + (self.J[2] - self.J[0]) * rate[2] * rate[0]),
+			1 / self.J[2] * (f_thrust.dot(self.z_l_tau) + t_d[2] + (self.J[0] - self.J[1]) * rate[0] * rate[1])
 		]).squeeze()

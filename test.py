@@ -1,46 +1,42 @@
 import numpy as np
-import casadi as cs
-import os
-from acados_template import AcadosOcp, AcadosOcpSolver, AcadosModel
 import matplotlib.pyplot as plt
-import mpl_toolkits.mplot3d.axes3d as p3
-from matplotlib import animation
+import matplotlib.animation as animation
 
-from quad import Quadrotor3D
-from utils import skew_symmetric, quaternion_to_euler, unit_quat, v_dot_q
-
-from quad_opt import quad_optimizer
+# Fixing random state for reproducibility
+np.random.seed(19680801)
 
 
-x0 = np.array([0,0,0, 1,0,0,0, 0,0,0, 0,0,0])
+def random_walk(num_steps, max_step=0.05):
+    """Return a 3D random walk as (num_steps, 3) array."""
+    start_pos = np.random.random(3)
+    steps = np.random.uniform(-max_step, max_step, size=(num_steps, 3))
+    walk = start_pos + np.cumsum(steps, axis=0)
+    return walk
 
 
+def update_lines(num, walks, lines):
+    for line, walk in zip(lines, walks):
+        # NOTE: there is no .set_data() for 3 dim data...
+        line.set_data(walk[num-10:num, :2].T)
+        line.set_3d_properties(walk[num-10:num, 2])
+    return lines
 
 
+# Data: 40 random walks as (num_steps, 3) arrays
+num_steps = 30
+walks = [random_walk(num_steps) for index in range(1)]
 
-quad_opt = quad_optimizer(Quadrotor3D(), optimization_dt=0.1, n_nodes=100)
-
-yref, yref_N = quad_opt.set_reference_state(np.array([-1,1,5, 1,0.1,0,0, 0,0,0, 0,0,0]))
-
-x_opt_acados, w_opt_acados = quad_opt.run_optimization(x0)
-
-print(quad_opt.acados_ocp_solver.get_cost())
-
+# Attaching 3D axis to the figure
 fig = plt.figure()
-plt.plot(x_opt_acados[:,0],'r')
-plt.plot(x_opt_acados[:,1],'g')
-plt.plot(x_opt_acados[:,2],'b')
+ax = fig.add_subplot(projection="3d")
+
+# Create lines initially without data
+lines = [ax.plot([], [], [])[0]]
 
 
-plt.plot(np.concatenate((yref[:quad_opt.n_nodes,0], [yref_N[0]])),'r--')
-plt.plot(np.concatenate((yref[:quad_opt.n_nodes,1], [yref_N[1]])),'g--')
-plt.plot(np.concatenate((yref[:quad_opt.n_nodes,2], [yref_N[2]])), 'b--')
-plt.show()
 
-fig = plt.figure()
-plt.plot(w_opt_acados[:,0],'r')
-plt.plot(w_opt_acados[:,1],'g')
-plt.plot(w_opt_acados[:,2],'b')
-plt.plot(w_opt_acados[:,3],'c')
+# Creating the Animation object
+ani = animation.FuncAnimation(
+    fig, update_lines, num_steps, fargs=(walks, lines), interval=100)
 
 plt.show()

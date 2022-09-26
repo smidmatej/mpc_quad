@@ -12,11 +12,14 @@ from utils import skew_symmetric, quaternion_to_euler, unit_quat, v_dot_q
 import pdb
 
 class quad_optimizer:
-    def __init__(self, quad, optimization_dt=5e-2, n_nodes=100):
+    def __init__(self, quad, t_horizon=1, n_nodes=100):
         
         self.n_nodes = n_nodes
-        self.optimization_dt = optimization_dt
-        self.t_horizon = self.n_nodes*self.optimization_dt # look-ahead time
+        self.t_horizon = t_horizon
+        #self.optimization_dt = optimization_dt
+
+        self.optimization_dt = self.t_horizon/self.n_nodes
+        #self.t_horizon = self.n_nodes*self.optimization_dt # look-ahead time
         
         self.quad = quad # quad is needed to create the casadi model using quad parameters
         self.dynamics = self.setup_casadi_model()
