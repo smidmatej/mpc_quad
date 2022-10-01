@@ -839,3 +839,7 @@ def separate_variables(traj):
     v_traj = traj[:, 7:10]
     r_traj = traj[:, 10:]
     return [p_traj, a_traj, v_traj, r_traj]
+
+
+
+

@@ -29,6 +29,7 @@ from scipy.interpolate.interpolate import interp1d
 from config.configuration_parameters import DirectoryConfig as GPConfig
 import matplotlib.pyplot as plt
 import xml.etree.ElementTree as XMLtree
+from six.moves import cPickle as pickle #for performance
 
 
 def safe_mkdir_recursive(directory, overwrite=False):
@@ -839,3 +840,9 @@ def separate_variables(traj):
     v_traj = traj[:, 7:10]
     r_traj = traj[:, 10:]
     return [p_traj, a_traj, v_traj, r_traj]
+
+
+
+
+
+

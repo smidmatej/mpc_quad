@@ -32,6 +32,8 @@ class quad_optimizer:
         #n_nodes = 100 # number of predicted states
         
 
+        #self.discrete_dynamics = 
+
         self.terminal_cost = 1
 
         self.acados_model = AcadosModel()
@@ -230,6 +232,22 @@ class quad_optimizer:
 
         #w_opt_acados = np.reshape(w_opt_acados, (-1))
         return x_opt_acados, w_opt_acados
+
+
+    def discrete_dynamics(self, x, u, dt):
+        # Fixed step Runge-Kutta 4 integrator
+
+    
+        k1 = self.dynamics(x=x, u=u)['x_dot']
+        k2 = self.dynamics(x=x + dt / 2 * k1, u=u)['x_dot']
+        k3 = self.dynamics(x=x + dt / 2 * k2, u=u)['x_dot']
+        k4 = self.dynamics(x=x + dt * k3, u=u)['x_dot']
+        x_out = x + dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+
+        return x_out
+
+       
+
 
 
 
