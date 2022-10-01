@@ -1,12 +1,12 @@
 
 import numpy as np
-from  utils import skew_symmetric, quaternion_to_euler, unit_quat, v_dot_q
+from  utils import skew_symmetric, quaternion_to_euler, unit_quat, v_dot_q, quaternion_inverse
 
 
 
 class Quadrotor3D:
 
-	def __init__(self, payload=False):
+	def __init__(self, payload=False, drag=False):
 		"""
 		Initialization of the 3D quadrotor class
 		:param noisy: Whether noise is used in the simulation
@@ -22,6 +22,8 @@ class Quadrotor3D:
 
 		# Maximum thrust in Newtons of a thruster when rotating at maximum speed.
 		self.max_thrust = 20
+
+		self.drag = drag
 
 		# System state space
 		self.pos = np.zeros((3,))
@@ -57,9 +59,11 @@ class Quadrotor3D:
 
 		# Drag coefficients [kg / m]
 		self.rotor_drag_xy = 0.3
+		#self.rotor_drag_xy = 30
 		self.rotor_drag_z = 0.0  # No rotor drag in the z dimension
 		self.rotor_drag = np.array([self.rotor_drag_xy, self.rotor_drag_xy, self.rotor_drag_z])[:, np.newaxis]
 		self.aero_drag = 0.08
+		#self.aero_drag = 80
 
 		self.payload_mass = 0.3  # kg
 		self.payload_mass = self.payload_mass * payload
@@ -164,7 +168,19 @@ class Quadrotor3D:
 		a_thrust = np.array([[0], [0], [np.sum(f_thrust)]]) / self.mass
 
 
-		a_drag = np.zeros((3, 1))
+		if self.drag:
+			# Transform velocity to body frame
+			v_b = v_dot_q(x[2], quaternion_inverse(x[1]))[:, np.newaxis]
+			# Compute aerodynamic drag acceleration in world frame
+			a_drag = -self.aero_drag * v_b ** 2 * np.sign(v_b) / self.mass
+			# Add rotor drag
+			a_drag -= self.rotor_drag * v_b / self.mass
+			# Transform drag acceleration to world frame
+			a_drag = v_dot_q(a_drag, x[1])
+		else:
+			a_drag = np.zeros((3, 1))
+
+		#a_drag = np.zeros((3, 1))
 
 		angle_quaternion = x[1]
 

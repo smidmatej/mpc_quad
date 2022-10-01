@@ -74,14 +74,15 @@ class quad_optimizer:
         self.acados_ocp.cost.Vu[-self.nu:, -self.nu:] = np.eye(self.nu) # weight only u
 
         # x cost (dim 12)
-        q_cost = np.array([10, 10, 10, 0.1, 0.1, 0.1, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]) # euler angles
+        #Original
+        #q_cost = np.array([10, 10, 10, 0.1, 0.1, 0.1, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]) # euler angles
         #q_cost = np.array([0, 1000, 1, 0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]) # euler angles
         
-
+        q_cost = np.array([10, 10, 10] +  [0.1, 0.1, 0.1] + [0.05, 0.05, 0.05] + [0.05, 0.05, 0.05])
         # add one more weigth to account for the 4 quaternions instead of 3 EA
         q_diagonal = np.concatenate((q_cost[:3], np.mean(q_cost[3:6])[np.newaxis], q_cost[3:]))
         r_cost = np.array([0.1, 0.1, 0.1, 0.1]) # u cost (dim 4)
-        #r_cost = np.array([0, 0, 0, 0]) # u cost (dim 4)
+        #r_cost = np.array([1000, 1000, 1000, 1000]) # u cost (dim 4)
         self.acados_ocp.cost.W = np.diag(np.concatenate((q_diagonal, r_cost))) # error costs
         self.acados_ocp.cost.W_e = np.diag(q_diagonal) * self.terminal_cost # end error cost
 
@@ -109,7 +110,7 @@ class quad_optimizer:
         # Compile acados OCP solver if necessary
         json_file = '_acados_ocp.json'
         
-        self.acados_ocp_solver = AcadosOcpSolver(self.acados_ocp)#, json_file=json_file)
+        self.acados_ocp_solver = AcadosOcpSolver(self.acados_ocp, json_file=json_file)
         
     def setup_casadi_model(self):
         

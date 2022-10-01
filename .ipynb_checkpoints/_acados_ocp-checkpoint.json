@@ -2007,7 +2007,7 @@
         "ny_e": 13,
         "nz": 0
     },
-    "json_file": "acados_ocp_nlp.json",
+    "json_file": "_acados_ocp.json",
     "model": {
         "dyn_disc_fun": null,
         "dyn_disc_fun_jac": null,
