@@ -16,13 +16,13 @@ import pickle
     
     
 def main():
-    Nsim = 500# number of simulation steps
+    Nsim = 100 # number of simulation steps
     simulation_dt = 5e-4
 
     # initial condition
 
-    quad = Quadrotor3D(payload=True,drag=True) # Controlled plant 
-    quad_opt = quad_optimizer(quad, t_horizon=1, n_nodes=100) # computing optimal control over model of plant
+    quad = Quadrotor3D(payload=False, drag=True) # Controlled plant 
+    quad_opt = quad_optimizer(quad, t_horizon=1, n_nodes=20) # computing optimal control over model of plant
 
     '''
     x_trajectory = quad_opt.square_trajectory(quad_opt.n_nodes, quad_opt.optimization_dt) # arbitrary trajectory
@@ -38,12 +38,13 @@ def main():
     u_optim = np.empty((Nsim, 4)) * np.NaN
 
 
-    x_target = np.array([10,-10,-5] + [1,0,0,0] + [0,0,0] + [0,0,0])
+    x_target = np.array([10,0,0] + [1,0,0,0] + [0,0,0] + [0,0,0])
 
     yref, yref_N = quad_opt.set_reference_state(x_target)
 
     x_sim = x.reshape((1, x.shape[0]))
-    x_pred_sim = np.empty((1,x.shape[0]))*np.NaN
+    x_pred_sim = np.empty((1, x.shape[0]))*np.NaN
+    aero_drag_sim = np.empty((1, 3))*np.NaN
     u_sim = np.empty((1,4))*np.NaN
     yref_sim = np.empty((1, yref.shape[1]))*np.NaN
 
@@ -69,20 +70,27 @@ def main():
 
         control_time = 0
         while control_time < quad_opt.optimization_dt: 
-            # control the quad with the most recent u for the whole control period (multiple simulation steps for one optimization)
+            # Uses the optimization model to predict one step ahead, used for gp fitting
+            x_pred = quad_opt.discrete_dynamics(x, u, simulation_dt, body_frame=True)
+
+            # Control the quad with the most recent u for the whole control period (multiple simulation steps for one optimization)
             quad.update(u, simulation_dt)
-
-
             x = np.array(quad.get_state(quaternion=True, stacked=True)) # state at the next optim step
-            #x_pred = quad_opt.dynamics(x=x, u=u)['x_dot']  # uses the optimization model to predict one step ahead, used for gp fitting
-            #print('j = ' + str(j) + '  ' + str(x[0:3]))
-            x_pred = quad_opt.discrete_dynamics(x, u, simulation_dt)
 
-            u_sim = np.append(u_sim, u.reshape((1,u.shape[0])), axis=0)
-            x_sim = np.append(x_sim, x.reshape((1,x.shape[0])), axis=0)
+            # x but in body frame referential
+            x_to_save = np.array(quad.get_state(quaternion=True, stacked=True, body_frame=True))
+
+            # Save model aerodrag for GP validation, useful only when payload=False
+            x_body = quad.get_state(quaternion=True, stacked=False, body_frame=True)
+            a_drag_body = quad.get_aero_drag(x_body, body_frame=True)
             
+            # Add current state to array for dataset creation and visualisation
+            u_sim = np.append(u_sim, u.reshape((1, u.shape[0])), axis=0)
+
+            x_sim = np.append(x_sim, x_to_save.reshape((1, x_to_save.shape[0])), axis=0)
             x_pred_sim = np.append(x_pred_sim, x_pred.reshape((1,x.shape[0])), axis=0)
             yref_sim = np.append(yref_sim, yref_now.reshape((1, yref_now.shape[0])), axis=0)
+            aero_drag_sim = np.append(aero_drag_sim, a_drag_body.reshape((1, a_drag_body.shape[0])), axis=0)
 
             control_time += simulation_dt
 
@@ -91,49 +99,89 @@ def main():
     pickle.dump([x_sim, u_sim, quad], file)
     file.close()
 
-    print(x_sim.shape)
-    print(x_pred_sim.shape)
-    save_trajectories_as_dict(x_sim, x_pred_sim, quad_opt.optimization_dt)
+    save_trajectories_as_dict(x_sim, u_sim, x_pred_sim, aero_drag_sim, simulation_dt)
+
 
     fig = plt.figure()
-    plt.subplot(121)
+    plt.subplot(221)
+    plt.plot(x_sim[:,0])
+    plt.plot(x_sim[:,1])
+    plt.plot(x_sim[:,2])
+    plt.plot(x_pred_sim[:,0],'-.')
+    plt.plot(x_pred_sim[:,1],'-.')
+    plt.plot(x_pred_sim[:,2],'-.')
+    plt.title('Position xyz')
+
+    plt.subplot(222)
+    plt.plot(x_sim[:,3])
+    plt.plot(x_sim[:,4])
+    plt.plot(x_sim[:,5])
+    plt.plot(x_sim[:,6])
+    plt.plot(x_pred_sim[:,3],'-.')
+    plt.plot(x_pred_sim[:,4],'-.')
+    plt.plot(x_pred_sim[:,5],'-.')
+    plt.plot(x_pred_sim[:,6],'-.')
+    plt.title('Quaternions')
+
+    plt.subplot(223)
+    plt.plot(x_sim[:,7])
+    plt.plot(x_sim[:,8])
+    plt.plot(x_sim[:,9])
+    plt.plot(x_pred_sim[:,7],'-.')
+    plt.plot(x_pred_sim[:,8],'-.')
+    plt.plot(x_pred_sim[:,9],'-.')
+    plt.title('Velocity xyz')
+
+    plt.subplot(224)
+    plt.plot(x_sim[:,10])
+    plt.plot(x_sim[:,11])
+    plt.plot(x_sim[:,12])
+    plt.plot(x_pred_sim[:,10],'-.')
+    plt.plot(x_pred_sim[:,11],'-.')
+    plt.plot(x_pred_sim[:,12],'-.')
+    plt.title('Angle rate')
+
+    fig = plt.figure()
+    plt.subplot(221)
     plt.plot(x_sim[:,0],'r')
     plt.plot(x_sim[:,1],'g')
     plt.plot(x_sim[:,2],'b')
+
+    plt.plot(x_pred_sim[:,0],'r-.')
+    plt.plot(x_pred_sim[:,1],'g-.')
+    plt.plot(x_pred_sim[:,2],'b-.')
+
     plt.plot(yref_sim[:,0],'r--')
     plt.plot(yref_sim[:,1],'g--')
     plt.plot(yref_sim[:,2],'b--')
-
-
-
-    #plt.plot(np.concatenate((yref[:quad_opt.n_nodes,0], [yref_N[0]])),'r--')
-    #plt.plot(np.concatenate((yref[:quad_opt.n_nodes,1], [yref_N[1]])),'g--')
-    #plt.plot(np.concatenate((yref[:quad_opt.n_nodes,2], [yref_N[2]])),'b--')
     plt.title('Position xyz')
 
 
-    plt.subplot(122)
+    plt.subplot(222)
     plt.plot(u_sim[:,0],'r')
     plt.plot(u_sim[:,1],'g')
     plt.plot(u_sim[:,2],'b--')
     plt.plot(u_sim[:,3],'c--')
     plt.ylim([0,1.2])
-
     plt.title('Control u')
 
-    fig = plt.figure()
-
+    #fig = plt.figure()
+    plt.subplot(223)
     plt.plot(x_sim[:,3],'r')
     plt.plot(x_sim[:,4],'g')
     plt.plot(x_sim[:,5],'b')
     plt.plot(x_sim[:,6],'b')
-
     plt.title('Quaternion q')
-    
+
+    plt.subplot(224)
+    plt.plot(aero_drag_sim[:,0],'b')
+    plt.plot(x_pred_sim[:,8],'r-.')
+    #plt.plot(aero_drag_sim[:,1],'g')
+    #plt.plot(aero_drag_sim[:,2],'b')
+    plt.plot(x_sim[:,8]**2*np.sign(x_sim[:,8]),'g--')
+    #plt.plot(x_sim[:,9],'g--')
+    #plt.plot(x_sim[:,10],'b--')
     plt.show()
-
-
-
 
 def plot_intermediate(x_opt_acados, w_opt_acados):
     fig = plt.figure()

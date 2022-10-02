@@ -7,7 +7,7 @@ import mpl_toolkits.mplot3d.axes3d as p3
 from matplotlib import animation
 
 from quad import Quadrotor3D
-from utils import skew_symmetric, quaternion_to_euler, unit_quat, v_dot_q
+from utils import skew_symmetric, quaternion_to_euler, unit_quat, v_dot_q, quaternion_inverse
 
 import pdb
 
@@ -156,7 +156,7 @@ class quad_optimizer:
 
 
         # concatenated dynamics
-        x_dot = cs.vertcat(f_p,f_q, f_v, f_r)
+        x_dot = cs.vertcat(f_p, f_q, f_v, f_r)
         
         # Casadi function for dynamics 
         return cs.Function('x_dot', [self.x,self.u], [x_dot], ['x','u'], ['x_dot'])
@@ -234,7 +234,7 @@ class quad_optimizer:
         return x_opt_acados, w_opt_acados
 
 
-    def discrete_dynamics(self, x, u, dt):
+    def discrete_dynamics(self, x, u, dt, body_frame=False):
         # Fixed step Runge-Kutta 4 integrator
 
     
@@ -244,8 +244,17 @@ class quad_optimizer:
         k4 = self.dynamics(x=x + dt * k3, u=u)['x_dot']
         x_out = x + dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
 
-        return x_out
-
+        #print(x_out)
+        if not body_frame:
+            return x_out
+        else:
+            # velocity is transformed to bodyframe
+            v_b = v_dot_q(x_out[7:10], quaternion_inverse(x_out[3:7]))
+            #print(x_out)
+            x_out = np.array([x_out[0], x_out[1], x_out[2], x_out[3], x_out[4], x_out[5], x_out[6],
+                    v_b[0], v_b[1], v_b[2], x_out[10], x_out[11], x_out[12]])
+            #print(x_out)
+            return x_out
        
 
 

@@ -352,7 +352,7 @@ void quad_OCP_acados_create_5_set_nlp_in(quad_OCP_solver_capsule* capsule, const
     if (new_time_steps) {
         quad_OCP_acados_update_time_steps(capsule, N, new_time_steps);
     } else {// all time_steps are identical
-        double time_step = 0.01;
+        double time_step = 0.05;
         for (int i = 0; i < N; i++)
         {
             ocp_nlp_in_set(nlp_config, nlp_dims, nlp_in, i, "Ts", &time_step);

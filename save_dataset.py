@@ -16,7 +16,7 @@ def save_dict(di_, filename_):
 
 
 
-def save_trajectories_as_dict(state, predicted_state, dt):
+def save_trajectories_as_dict(state, u, predicted_state, aero_drag, dt):
 	"""
 	Saves 2 states into a dict to calculate the acceleration error
 	a_error_k = (v_k+1 - v^star_k+1) / dt
@@ -28,6 +28,8 @@ def save_trajectories_as_dict(state, predicted_state, dt):
 	data['q'] = state[:,3:7]
 	data['v'] = state[:,7:10]
 	data['w'] = state[:,10:13]
+	data['u'] = u
+	data['aero_drag'] = aero_drag
 
 	# predicted state
 	data['p_pred'] = predicted_state[:,0:3]

@@ -78,21 +78,33 @@ class Quadrotor3D:
 			= args[0]
 
 
-	def get_state(self, quaternion=False, stacked=False):
+	def get_state(self, quaternion=False, stacked=False, body_frame=False):
 
-		if quaternion and not stacked:
+		if quaternion and not stacked and not body_frame:
 			return [self.pos, self.angle, self.vel, self.a_rate]
-		if quaternion and stacked:
+		if quaternion and stacked and not body_frame:
 			return [self.pos[0], self.pos[1], self.pos[2], self.angle[0], self.angle[1], self.angle[2], self.angle[3],
 					self.vel[0], self.vel[1], self.vel[2], self.a_rate[0], self.a_rate[1], self.a_rate[2]]
+
+		v_b = v_dot_q(self.vel, quaternion_inverse(self.angle))
+		if quaternion and not stacked and body_frame :
+			return [self.pos, self.angle, v_b, self.a_rate]
+
+		if quaternion and stacked and body_frame:
+			
+			return [self.pos[0], self.pos[1], self.pos[2], self.angle[0], self.angle[1], self.angle[2], self.angle[3],
+			v_b[0], v_b[1], v_b[2], self.a_rate[0], self.a_rate[1], self.a_rate[2]]
 
 		angle = quaternion_to_euler(self.angle)
 
 
-		if not quaternion and stacked:
+		if not quaternion and stacked and not body_frame:
 			return [self.pos[0], self.pos[1], self.pos[2], angle[0], angle[1], angle[2],
 				self.vel[0], self.vel[1], self.vel[2], self.a_rate[0], self.a_rate[1], self.a_rate[2]]
-		return [self.pos, angle, self.vel, self.a_rate]
+
+		if not quaternion and not stacked and not body_frame :
+			return [self.pos, angle, self.vel, self.a_rate]
+
 
 
 	def get_control(self):
@@ -112,7 +124,6 @@ class Quadrotor3D:
 		self.u = u
 
 		x = self.get_state(quaternion=True, stacked=False)
-
 		#print('u: ' + str(self.u))
 		#print('dv: ' + str(self.f_vel(x, self.u, f_d)))
 		# RK4 integration
@@ -132,6 +143,29 @@ class Quadrotor3D:
 
 		self.pos, self.angle, self.vel, self.a_rate = x
 		#print(self.pos)
+
+
+	def get_aero_drag(self, x, body_frame=False):
+		"""
+		Aerodynamic drag affecting the quad
+		:param x: 4-length array of input state with components: 3D pos, quaternion angle, 3D vel, 3D rate
+		:return: acceleration vector length 3
+		"""
+		if self.drag:
+			#breakpoint()
+			# Transform velocity to body frame
+			v_b = v_dot_q(x[2], quaternion_inverse(x[1]))[:, np.newaxis]
+			# Compute aerodynamic drag acceleration in world frame
+			a_drag = -self.aero_drag * v_b ** 2 * np.sign(v_b) / self.mass
+			# Add rotor drag
+			a_drag -= self.rotor_drag * v_b / self.mass
+			if not body_frame:
+				# Transform drag acceleration to world frame
+				a_drag = v_dot_q(a_drag, x[1])
+		else:
+			a_drag = np.zeros((3, 1))
+		return a_drag
+
 
 	def f_pos(self, x):
 		"""
@@ -168,18 +202,8 @@ class Quadrotor3D:
 		a_thrust = np.array([[0], [0], [np.sum(f_thrust)]]) / self.mass
 
 
-		if self.drag:
-			# Transform velocity to body frame
-			v_b = v_dot_q(x[2], quaternion_inverse(x[1]))[:, np.newaxis]
-			# Compute aerodynamic drag acceleration in world frame
-			a_drag = -self.aero_drag * v_b ** 2 * np.sign(v_b) / self.mass
-			# Add rotor drag
-			a_drag -= self.rotor_drag * v_b / self.mass
-			# Transform drag acceleration to world frame
-			a_drag = v_dot_q(a_drag, x[1])
-		else:
-			a_drag = np.zeros((3, 1))
 
+		a_drag = self.get_aero_drag(x)
 		#a_drag = np.zeros((3, 1))
 
 		angle_quaternion = x[1]
