@@ -81,7 +81,7 @@ def main():
             x_to_save = np.array(quad.get_state(quaternion=True, stacked=True, body_frame=True))
 
             # Save model aerodrag for GP validation, useful only when payload=False
-            x_body = quad.get_state(quaternion=True, stacked=False, body_frame=True)
+            x_body = quad.get_state(quaternion=True, stacked=False, body_frame=False) # in world frame because get_aero_drag takes world frame velocity
             a_drag_body = quad.get_aero_drag(x_body, body_frame=True)
             
             # Add current state to array for dataset creation and visualisation
