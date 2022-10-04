@@ -14,7 +14,10 @@ class RBF:
         difference = argument_1-argument_2
         
         return float(self.sigma_f**2 * np.exp(-1/2*difference.T.dot(np.linalg.inv(self.L*self.L)).dot(difference)))
-    
+
+    def __str__(self):
+        return f"L = {self.L}, \n\r Sigma_f = {self.sigma_f}"
+
 def calculate_covariance_matrix(x1,x2,covariance_function):
 
     cov_mat = np.empty((x1.shape[0], x2.shape[0]))*np.NaN
@@ -80,17 +83,4 @@ class GPR:
             return mean_at_values
         
         
-    def nll_stable(self):
-        # Numerically more stable implementation of Eq. (11) as described
-        # in http://www.gaussianprocess.org/gpml/chapters/RW2.pdf, Section
-        # 2.2, Algorithm 2.1.
-        
-        K = calculate_covariance_matrix(self.z_train, self.z_train, self.covariance_function) + (self.noise+1e-7)*np.identity(len(self.z_train))
-        L = cholesky(K)
-        
-        S1 = solve_triangular(L, self.y_train, lower=True)
-        S2 = solve_triangular(L.T, S1, lower=False)
-        
-        return np.sum(np.log(np.diagonal(L))) + \
-               0.5 * self.y_train.T.dot(S2) + \
-               0.5 * self.z_train.shape[0] * np.log(2*np.pi)
+
