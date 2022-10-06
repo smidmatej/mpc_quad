@@ -43,6 +43,8 @@ class GPR:
         self.theta=theta
         
         self.kernel = covariance_function(L=np.eye(z_train.shape[1])*theta[0], sigma_f=theta[-2])
+        #self.kernel = covariance_function(L=np.diag(theta[:-2]), sigma_f=theta[-2])
+        
         self.noise = theta[-1]
         
         self.inv_cov_matrix_of_input_data = np.linalg.inv(
@@ -81,7 +83,10 @@ class GPR:
             return mean_at_values
         
     def maximize_likelyhood(self):
-        bnds = ((0.1, None), (0.1, None), (0.1, None))
+        
+        low_bnd = 0.01
+        #bnds = tuple([(low_bnd, None) for i in range(self.z_train.shape[1])]) + ((low_bnd, None), (low_bnd, None))
+        bnds = ((low_bnd, None), (low_bnd, None), (low_bnd, None))
         print('Maximizing the likelyhood function for GP')
         print(f'Hyperparameters before optimization = {self.theta}')
         
@@ -98,18 +103,24 @@ class GPR:
             # Numerically more stable implementation of Eq. (11) as described
             # in http://www.gaussianprocess.org/gpml/chapters/RW2.pdf, Section
             # 2.2, Algorithm 2.1.
-            k = self.covariance_function(L=np.diag(theta[:-2]), sigma_f=theta[-2])
-
+            
+            #breakpoint()
+            k = self.covariance_function(L=np.eye(self.z_train.shape[1])*theta[0], sigma_f=theta[-2])
+            #k = self.covariance_function(L=np.diag(theta[:-2]), sigma_f=theta[-2])
+            
             K = self.calculate_covariance_matrix(self.z_train, self.z_train, k) + \
                     (theta[-1]+1e-7)*np.identity(self.z_train.shape[0])
             L = cholesky(K)
 
             S1 = solve_triangular(L, self.y_train, lower=True)
             S2 = solve_triangular(L.T, S1, lower=False)
-
-            return (np.sum(np.log(np.diagonal(L))) + \
-                   0.5 * self.y_train.T.dot(S2) + \
-                   0.5 * self.z_train.shape[0] * np.log(2*np.pi)).flatten()
+            
+            
+            neg_log_lklhd = (np.sum(np.log(np.diagonal(L))) + \
+                           0.5 * self.y_train.T.dot(S2) + \
+                           0.5 * self.z_train.shape[0] * np.log(2*np.pi)).flatten()
+            #print(neg_log_lklhd.shape)
+            return neg_log_lklhd
         
     @staticmethod
     def calculate_covariance_matrix(x1,x2, kernel):
