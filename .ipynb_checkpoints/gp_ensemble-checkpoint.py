@@ -21,6 +21,6 @@ class GPEnsemble:
         out = np.concatenate(out_j, axis=1)
         return out
     
-    def maximize_likelyhood(self):
+    def fit(self):
         for gpr in self.gp:
-            gpr.maximize_likelyhood()
+            gpr.fit()
