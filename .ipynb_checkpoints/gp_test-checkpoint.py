@@ -3,45 +3,29 @@ import matplotlib.pyplot as plt
 from gp import *
 from data_loader import data_loader
 import time
+from scipy.stats import multivariate_normal
 
+z_train = np.array([0,1,5]).reshape(-1,1)
 
-filename = 'trajectory.pkl'
-compute_reduction = 100
-n_training_samples = 10
-
-d_loader = data_loader(filename, compute_reduction, n_training_samples)               
-
-
-
-z = d_loader.get_z(training=False)
-y = d_loader.get_y(training=False)[:,0].reshape(-1,1)
-
-
-z_train = d_loader.get_z(training=True)
-y_train = d_loader.get_y(training=True)[:,0].reshape(-1,1)
-
+y_train = np.array([7,2,3]).reshape(-1,1)
+z_query = np.arange(0,10,1).reshape(-1,1)
 
 theta0 = [1,1,1] # Kernel variables
-#x_query = np.arange(-20,20,0.05).reshape(
-#x_query = np.arange(-20,20,0.05).reshape(-1,1)
 
-model = GPR(z_train, y_train, covariance_function=RBF, theta=theta0)
+model = GPR(z_train, y_train, covariance_function=KernelFunction, theta=theta0)
+model_prior = GPR(None, None, covariance_function=KernelFunction, theta=theta0)
+mean_prior, std_prior = model_prior.predict(z_query, covar=True)
+print(std_prior)
+
+y = multivariate_normal.pdf(z_query, mean=mean_prior.ravel(), cov=std_prior)
+print(y)
+
+
 # Before ML optimization
-#mean_b, std_b = model.predict(x_query, std=True)
-
-# Calculate the RMS over all samples
-mean_test_before = model.predict(z, std=False)
-rms_before = np.sqrt(np.mean((y - mean_test_before)**2))
+#mean_b, std_b = model.predict(z_query, std=True)
 
 # ML optimization
-model.maximize_likelyhood()
+#model.maximize_likelyhood()
 
 # After optimization
-#mean_a, std_a = model.predict(x_query, std=True)
-
-# Calculate the RMS over all samples
-mean_test_after = model.predict(z, std=False)
-rms_after = np.sqrt(np.mean((y - mean_test_after)**2))
-
-print(f'RMS before = {rms_before}')
-print(f'RMS after = {rms_after}')
+#mean_a, std_a = model.predict(z_query, std=True)
