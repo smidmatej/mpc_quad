@@ -10,9 +10,11 @@ class KernelFunction:
         
     def __call__(self, argument_1,argument_2):
 
-        #print(argument_1.shape)
-        #print(argument_2.shape)
-        difference = argument_1-argument_2
+        if self.L.shape == (0,0):
+            # Kernel initialized with no training data
+            return 0
+        else:
+            difference = argument_1-argument_2
         
         return float(self.sigma_f**2 * np.exp(-1/2*difference.T.dot(np.linalg.inv(self.L*self.L)).dot(difference)))
 
@@ -36,13 +38,20 @@ class GPR:
     def initialize(self, z_train, y_train, covariance_function, theta):
         """The whole contructor is in this method. Useful because it will be called after ML optimization"""
         
+        if z_train is None or y_train is None:
+            self.n_train = 0
+            self.z_dim = 0
+        else:
+            self.n_train = z_train.shape[0]
+            self.z_dim = z_train.shape[1]
+            
         self.z_train = z_train
         self.y_train = y_train
         self.covariance_function = covariance_function
         
         self.theta=theta
         
-        self.kernel = covariance_function(L=np.eye(z_train.shape[1])*theta[0], sigma_f=theta[-2])
+        self.kernel = covariance_function(L=np.eye(self.z_dim)*theta[0], sigma_f=theta[-2])
         #self.kernel = covariance_function(L=np.diag(theta[:-2]), sigma_f=theta[-2])
         
         self.noise = theta[-1]
