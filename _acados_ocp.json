@@ -1970,7 +1970,7 @@
         "zu_e": []
     },
     "cython_include_dirs": [
-        "/home/ja/Projects/MPC_drone/gp_mpc_venv/lib/python3.8/site-packages/numpy/core/include",
+        "/home/ja/Projects/MPC_drone/mpc_quad/.venv/lib/python3.8/site-packages/numpy/core/include",
         "/usr/include/python3.8"
     ],
     "dims": {

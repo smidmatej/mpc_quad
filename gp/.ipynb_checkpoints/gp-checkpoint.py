@@ -2,7 +2,6 @@ import numpy as np
 from numpy.linalg import cholesky, det
 from scipy.linalg import solve_triangular
 from scipy.optimize import minimize
-import casadi as cs
 
 class KernelFunction:
     def __init__(self,L=np.eye(10),sigma_f=1):
@@ -19,27 +18,12 @@ class KernelFunction:
         """
         Calculate the value of the kernel function given 2 input vectors
         
-        :param: x1: np.array or cs.MX of dimension 1 x d 
-        :param: x2: np.array or cs.MX of dimension 1 x d 
+        :param: x1: np.array of dimension 1 x d
+        :param: x2: np.array of dimension 1 x d
         """
-
-        if isinstance(x1, np.ndarray) and isinstance(x2, np.ndarray): 
-            # assure that x is not onedimensional
-            x1 = np.atleast_2d(x1)
-            x2 = np.atleast_2d(x2)
-
-            dif = x1-x2
-            return float(self.sigma_f**2 * np.exp(-1/2*dif.T.dot(np.linalg.inv(self.L*self.L)).dot(dif)))
-        else:
-            # input is assumed to be a casadi vector
-            # Only implemented for scalar symbolics
-            print(self.L.shape)
-            assert self.L.shape == (1,1), "Symbolic kernel evaluation only works for n x 1 inputs, create a kernel with L.shape = (1,1]"
-            #assert x1.shape == x2.shape, "Inputs to kernel need identical dimensions"
-
-            dif = x1-x2
-            return self.sigma_f**2 * np.exp(-1/2*dif**2 / self.L[0,0]**2)
-
+        difference = x1-x2
+        
+        return float(self.sigma_f**2 * np.exp(-1/2*difference.T.dot(np.linalg.inv(self.L*self.L)).dot(difference)))
 
     def __str__(self):
         return f"L = {self.L}, \n\r Sigma_f = {self.sigma_f}"
@@ -71,15 +55,11 @@ class GPR:
         :param: theta: np.array of hyperparameters
         """
         
-
         if z_train is None or y_train is None:
             self.n_train = 0
             self.z_dim = 1 # this needs to be set in a general way for prediction from prior
         else:
             self.n_train = z_train.shape[0]
-            if isinstance(z_train, cs.SX):
-                assert z_train.shape[1] == 1 or y_train.shape[1] == 1, "Symbolic regression works only for scalar samples"
-
             self.z_dim = z_train.shape[1]
             
         self.z_train = z_train
@@ -92,17 +72,9 @@ class GPR:
         
         self.noise = theta[-1]
         
-        if isinstance(z_train, cs.SX):
-            cov_matrix_of_input_data = self.calculate_covariance_matrix(z_train, z_train, self.kernel) \
-                                            + (self.noise+1e-7)*np.identity(self.n_train)
-
-            # Symbolic matrix inverse using linear system solve, since cs does not have native matrix inverse method
-            self.inv_cov_matrix_of_input_data = cs.solve(cov_matrix_of_input_data, cs.SX.eye(cov_matrix_of_input_data.size1()))
-
-        else:
-            self.inv_cov_matrix_of_input_data = np.linalg.inv(
-                self.calculate_covariance_matrix(z_train, z_train, self.kernel) \
-                + (self.noise+1e-7)*np.identity(self.n_train))
+        self.inv_cov_matrix_of_input_data = np.linalg.inv(
+            self.calculate_covariance_matrix(z_train, z_train, self.kernel) \
+            + (self.noise+1e-7)*np.identity(self.n_train))
         
         print(f'Size of feature training data = {(self.n_train, self.z_dim)}')
         print(f'Size of output training data = {self.n_train, self.z_dim}')
@@ -213,11 +185,7 @@ class GPR:
         :param: x2: n x d np.array, where n is the number of samples and d is the dimension of the regressor
         :param: kernel: Instance of a KernelFunction class
         """
-        if isinstance(x1, cs.SX) and isinstance(x2, cs.SX):
-            # Symbolic version or kernel can output covariance matrices directly
-            return kernel(x1,x2)
-
-
+        
         if x1 is None or x2 is None:
             # Dimension zero matrix 
             return np.zeros((0,0))

@@ -142,7 +142,7 @@ ocp_cython_o: ocp_cython_c
 	-I $(INCLUDE_PATH)/blasfeo/include/ \
 	-I $(INCLUDE_PATH)/hpipm/include/ \
 	-I $(INCLUDE_PATH) \
-	-I /home/ja/Projects/MPC_drone/gp_mpc_venv/lib/python3.8/site-packages/numpy/core/include \
+	-I /home/ja/Projects/MPC_drone/mpc_quad/.venv/lib/python3.8/site-packages/numpy/core/include \
 	-I /usr/include/python3.8 \
 	acados_ocp_solver_pyx.c \
 
@@ -169,7 +169,7 @@ sim_cython_o: sim_cython_c
 	-I $(INCLUDE_PATH)/blasfeo/include/ \
 	-I $(INCLUDE_PATH)/hpipm/include/ \
 	-I $(INCLUDE_PATH) \
-	-I /home/ja/Projects/MPC_drone/gp_mpc_venv/lib/python3.8/site-packages/numpy/core/include \
+	-I /home/ja/Projects/MPC_drone/mpc_quad/.venv/lib/python3.8/site-packages/numpy/core/include \
 	-I /usr/include/python3.8 \
 	acados_sim_solver_pyx.c \
 

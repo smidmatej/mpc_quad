@@ -1,4 +1,4 @@
-# Gaussian-process
+# MPC control of quadcopter using Gaussian processes 
 Implementation of MPC controller for a quadrocopter model using python. This repository implements the framework as described in [[1]](#1)
 
 
