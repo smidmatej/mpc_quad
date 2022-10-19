@@ -122,8 +122,7 @@ class GPR:
         """
         sigma_k = self.calculate_covariance_matrix(self.z_train, at_values_z, self.kernel)
         sigma_kk = self.calculate_covariance_matrix(at_values_z, at_values_z, self.kernel)
-        print(sigma_k.shape)
-        print(sigma_kk.shape)
+
 
         if self.n_train == 0:
             mean_at_values = np.zeros((at_values_z.shape[0],1))
@@ -190,6 +189,20 @@ class GPR:
 
         print('Optimization done')
         print(f'Hyperparameters after optimization = {self.theta}')
+
+    def jacobian(self, z):
+        """
+        Casadi symbolic jacobian of prediction y with respect to z
+
+        :param: z: Casadi symbolic vector expression n x 1
+        :return: Casadi function jacobian
+        """
+        assert z.shape[1] == 1, f"z needs to be n x 1, z.shape={z.shape}"
+        y = self.predict(z)
+        
+        J = cs.jacobian(y, z)
+        Jf = cs.Function('J', [z], [J])
+        return Jf
         
     def nll(self, theta):
         """

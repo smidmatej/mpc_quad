@@ -1,6 +1,6 @@
 from gp import GPR
 import numpy as np
-
+import casadi as cs
 
 
 class GPEnsemble:
@@ -16,11 +16,35 @@ class GPEnsemble:
     def predict(self, z):
         
         out_j = [None]*self.number_of_dimensions
-        for n in range(len(self.gp)):
-            out_j[n] = self.gp[n].predict(z[:,n].reshape(-1,1)).reshape(-1,1)
-        out = np.concatenate(out_j, axis=1)
+        if isinstance(z, cs.SX):
+            for n in range(len(self.gp)):
+                out_j[n] = self.gp[n].predict(cs.reshape(z[:,n],-1,1))
+                print(type(out_j[n]))
+            concat = [out_j[n] for n in range(len(out_j))]
+            #print(len(concat))
+            out = cs.horzcat(*concat)
+        else:
+            for n in range(len(self.gp)):
+                out_j[n] = self.gp[n].predict(z[:,n].reshape(-1,1))
+        
+            out = np.concatenate(out_j, axis=1)
+
         return out
     
     def fit(self):
         for gpr in self.gp:
             gpr.fit()
+
+    def jacobian(self, z):
+        """
+        Casadi symbolic jacobian of expression self.prediction with respect to z
+
+        :param: z: Casadi symbolic vector expression n x d
+        :return: Casadi function jacobian
+        """
+        assert z.shape[1] == self.number_of_dimensions, f"z needs to be n x d,  z.shape={z.shape}, GPE.number_of_dimensions={self.number_of_dimensions}"
+
+        f_jacobs = list()
+        for col in range(self.number_of_dimensions):
+            f_jacobs.append(self.gp[col].jacobian(z[:,col]))
+        return f_jacobs
