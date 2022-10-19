@@ -12,5 +12,7 @@ if __name__ == "__main__":
     print(output)
 
     model = GPR(x, y, KernelFunction, np.array([1,1,1]))
+
+    
     #k = kernel(1,0)
     #print(k)
