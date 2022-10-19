@@ -76,18 +76,33 @@ class GPR:
         :param: covariance_function: Reference to a KernelFunction
         :param: theta: np.array of hyperparameters
         """
-        
 
         if z_train is None or y_train is None:
+            # No training data given, gp will only provide prior predictions
             self.n_train = 0
             self.z_dim = 1 # this needs to be set in a general way for prediction from prior
         else:
-            self.n_train = z_train.shape[0]
-            #if isinstance(z_train, cs.SX):
-                #assert z_train.shape[1] == 1 or y_train.shape[1] == 1, "Symbolic regression works only for scalar samples"
+            # Assure that the training data has the correct format
+            if z_train.ndim < 2 and z_train.shape != (1,1):
+                # input is a (n,) np.array
+                z_train = z_train.reshape((-1,1))
+            else:
+                # input is a scalar or ndim >=2
+                y_train = np.atleast_2d(y_train)
 
+
+            if y_train.ndim == 1 and y_train.shape != (1,1):
+                # input is a (n,)
+                y_train = y_train.reshape((-1,1))
+            else:
+                # input is a scalar or ndim >=2
+                y_train = np.atleast_2d(y_train)
+
+
+            self.n_train = z_train.shape[0]
             self.z_dim = z_train.shape[1]
-            
+
+
         self.z_train = z_train
         self.y_train = y_train
         self.covariance_function = covariance_function
@@ -120,6 +135,8 @@ class GPR:
         
         :param at_values_z: np vector to evaluate at
         """
+
+        ### TODO: Add std and variance to casadi prediction ###
         sigma_k = self.calculate_covariance_matrix(self.z_train, at_values_z, self.kernel)
         sigma_kk = self.calculate_covariance_matrix(at_values_z, at_values_z, self.kernel)
 
@@ -175,6 +192,7 @@ class GPR:
         Uses the negative log likelyhood function to maximize likelyhood by varying the hyperparameters theta
         """
         
+        print(self.y_train.shape)
         low_bnd = 0.01
         #bnds = tuple([(low_bnd, None) for i in range(self.z_train.shape[1])]) + ((low_bnd, None), (low_bnd, None))
         bnds = ((low_bnd, None), (low_bnd, None), (low_bnd, None))
@@ -199,7 +217,7 @@ class GPR:
         """
         assert z.shape[1] == 1, f"z needs to be n x 1, z.shape={z.shape}"
         y = self.predict(z)
-        
+
         J = cs.jacobian(y, z)
         Jf = cs.Function('J', [z], [J])
         return Jf

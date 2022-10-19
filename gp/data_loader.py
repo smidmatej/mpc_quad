@@ -7,6 +7,11 @@ import numpy as np
 from sklearn.mixture import GaussianMixture
 import scipy.stats
 
+from warnings import warn
+
+
+
+
 
 def load_dict(filename_):
     with open(filename_, 'rb') as f:
@@ -47,7 +52,10 @@ class data_loader:
         
         #self.shuffle()
         #print(self.z.shape)
-        self.cluster_data()
+        #self.cluster_data()
+        # representatives['z'] are velocity x,y,z
+        # represantatives['y'] are the accelerations x,y,z that correspond to the sample velocities
+        self.representatives = self.cluster_data_dimensions_concatenate([7,8,9], [0,1,2])
         
         
     def shuffle(self):
@@ -107,6 +115,8 @@ class data_loader:
         The representatives are the samples with the highest probability of falling into their respective cluster.
         Clustering is done over the whole state space -- Care needed when using only a subspace
         """
+        
+        warn('This is deprecated, use dimension-wise clustering', DeprecationWarning, stacklevel=2)
         self.GMM = GaussianMixture(n_components=self.number_of_training_samples, random_state=0, n_init=3, init_params='kmeans').fit(self.z)
         
         # chooses the most representative samples to use as training samples
@@ -122,6 +132,40 @@ class data_loader:
             self.representatives['z'][i, :] = self.z[idx_most_rep,:]
             self.representatives['y'][i, :] = self.y[idx_most_rep,:]
 
+    def cluster_data_dimension(self, dz, dy):
+        """
+        Fits a Gaussian Miture Model to dimension dz and returns the samples (z[,dz], y[,dy]) that have the highest probability in the mixture model
+        """
+        self.GMM = GaussianMixture(n_components=self.number_of_training_samples, random_state=0, n_init=3, init_params='kmeans').fit(self.z[:,dz].reshape(-1,1))
+        
+        # chooses the most representative samples to use as training samples
+        representatives = dict()
+        representatives = dict()
+        representatives['z'] = np.empty(shape=(self.GMM.n_components, 1))
+        representatives['y'] = np.empty(shape=(self.GMM.n_components, 1))
+        for i in range(self.GMM.n_components):
+            # PDF of each sample
+            density = scipy.stats.multivariate_normal(cov=self.GMM.covariances_[i], mean=self.GMM.means_[i]).logpdf(self.z[:,dz])
+            # Index of the sample with the max of PDF
+            idx_most_rep = np.argmax(density)
+            # Used as training data
+            representatives['z'][i] = self.z[idx_most_rep, dz]
+            representatives['y'][i] = self.y[idx_most_rep, dy]
+        return representatives
     
+    def cluster_data_dimensions_concatenate(self, dimensions_z, dimensions_y):
+        """
+        Return a dictionary of representative samples in a list of dimensions. 
+        Each dimension is seperate, the represantativeness of each sample is measured in that dimension only
+        """
+        assert len(dimensions_z)==len(dimensions_y), f"dimensions_z = {dimensions_z}, dimensions_y = {dimensions_y}"
+        reps = [None]*len(dimensions_z)
+        reps_concat = dict()
+        for index in range(len(dimensions_z)):
+            reps[index] = self.cluster_data_dimension(dimensions_z[index], dimensions_y[index])
+
+        reps_concat['z'] = np.concatenate([reps[i]['z'] for i in range(len(reps))], axis=1)
+        reps_concat['y'] = np.concatenate([reps[i]['y'] for i in range(len(reps))], axis=1)
+        return reps_concat
 
 

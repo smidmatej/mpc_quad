@@ -13,8 +13,9 @@ class GPEnsemble:
     def add_gp(self, new_gp, dim):
         self.gp[dim] = new_gp
         
-    def predict(self, z):
-        
+    def predict(self, z, std=False):
+        ### TODO: Add std and variance to casadi prediction ###
+
         out_j = [None]*self.number_of_dimensions
         if isinstance(z, cs.SX):
             for n in range(len(self.gp)):
@@ -23,13 +24,23 @@ class GPEnsemble:
             concat = [out_j[n] for n in range(len(out_j))]
             #print(len(concat))
             out = cs.horzcat(*concat)
+            return out
         else:
-            for n in range(len(self.gp)):
-                out_j[n] = self.gp[n].predict(z[:,n].reshape(-1,1))
+            if std:
+                # std requested, need to get std from all gps
+                std = [None]*self.number_of_dimensions
+                for n in range(len(self.gp)):
+                    out_j[n], std[n] = self.gp[n].predict(z[:,n].reshape(-1,1), std=True)
+                out = np.concatenate(out_j, axis=1)
+                return out, std
+            else:
+                # Nobody wants std
+                for n in range(len(self.gp)):
+                    out_j[n] = self.gp[n].predict(z[:,n].reshape(-1,1))
+                out = np.concatenate(out_j, axis=1)
+                return out
+            
         
-            out = np.concatenate(out_j, axis=1)
-
-        return out
     
     def fit(self):
         for gpr in self.gp:
