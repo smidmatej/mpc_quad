@@ -1,4 +1,4 @@
-from gp import GPR
+from gp.gp import GPR
 import numpy as np
 import casadi as cs
 
@@ -26,6 +26,8 @@ class GPEnsemble:
             out = cs.horzcat(*concat)
             return out
         else:
+            # in case of prediction on one sample
+            z = np.atleast_2d(z)
             if std:
                 # std requested, need to get std from all gps
                 std = [None]*self.number_of_dimensions
@@ -64,11 +66,11 @@ class GPEnsemble:
 
     def save(self, path, xyz=True):
         if xyz: 
-            xyz_name = ['x','y','z']
+            xyz_name = ['_x','_y','_z']
             # GPE contains 3 GPs, one for each dimension
 
             for gpr_index in range(len(self.gp)):
-                path_with_name = path.join(xyz_name[gpr_index]) 
+                path_with_name = path + xyz_name[gpr_index]
                 self.gp[gpr_index].save(path_with_name)
         
         else:
@@ -76,14 +78,13 @@ class GPEnsemble:
 
     def load(self, path, xyz=True):
         if xyz: 
-            xyz_name = ['x','y','z']
+            xyz_name = ['_x','_y','_z']
             # GPE contains 3 GPs, one for each dimension
 
             # Discard the old GPE contents
             #self.gp = list()
             for gpr_index in range(len(xyz_name)):
-                path_with_name = path.join(xyz_name[gpr_index]) 
-                
+                path_with_name = path + xyz_name[gpr_index] 
                 # Create a new empty GPR and add it to GPE
                 self.add_gp(GPR(None,None,None,None), gpr_index)
                 
@@ -93,3 +94,6 @@ class GPEnsemble:
             self.number_of_dimensions = len(self.gp)
         else:
             raise NotImplementedError
+
+    def __str__(self):
+        return ' '.join([self.gp[i].__str__() for i in range(len(self.gp))])

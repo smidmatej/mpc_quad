@@ -296,6 +296,9 @@ class GPR:
         self.initialize(data_dict['z_train'], data_dict['y_train'], KernelFunction, data_dict['theta'])
         
 
+    def __str__(self):
+        return f"Theta: {self.theta}"
+
 
 
 

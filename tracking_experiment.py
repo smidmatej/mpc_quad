@@ -15,8 +15,24 @@ from save_dataset import save_trajectories_as_dict
 import pickle
     
     
+from gp.gp import *
+from gp.gp_ensemble import GPEnsemble
+
 def main():
-    Nsim = 100 # number of simulation steps
+
+
+    # load GPE 
+
+
+    save_path = "gp/models/ensemble"
+    gpe = GPEnsemble(3)
+    gpe.load(save_path)
+    print(gpe)
+
+
+
+    Nsim = 50 # number of simulation steps
+
     simulation_dt = 5e-4
 
     # initial condition
@@ -45,6 +61,7 @@ def main():
     x_sim = x.reshape((1, x.shape[0]))
     x_pred_sim = np.empty((1, x.shape[0]))*np.NaN
     aero_drag_sim = np.empty((1, 3))*np.NaN
+    GPE_pred_sim = np.empty((1, 3))*np.NaN
     u_sim = np.empty((1,4))*np.NaN
     yref_sim = np.empty((1, yref.shape[1]))*np.NaN
 
@@ -73,9 +90,14 @@ def main():
             # Uses the optimization model to predict one step ahead, used for gp fitting
             x_pred = quad_opt.discrete_dynamics(x, u, simulation_dt, body_frame=True)
 
+
+
+
             # Control the quad with the most recent u for the whole control period (multiple simulation steps for one optimization)
             quad.update(u, simulation_dt)
             x = np.array(quad.get_state(quaternion=True, stacked=True)) # state at the next optim step
+
+
 
             # x but in body frame referential
             x_to_save = np.array(quad.get_state(quaternion=True, stacked=True, body_frame=True))
@@ -92,6 +114,18 @@ def main():
             yref_sim = np.append(yref_sim, yref_now.reshape((1, yref_now.shape[0])), axis=0)
             aero_drag_sim = np.append(aero_drag_sim, a_drag_body.reshape((1, a_drag_body.shape[0])), axis=0)
 
+            # GPE prediction
+            v_body = x_to_save[7:10]
+
+            a_error_gpe = gpe.predict(v_body)
+            #a_error_gpe = v_dot_q(a_error_gpe.T, x[3:7])
+            GPE_pred_sim = np.append(GPE_pred_sim, a_error_gpe.reshape((1, -1)), axis=0)
+            '''
+            print("GPE prediction:")
+            print(a_error_gpe)
+            print("Measured drag:")
+            print(a_drag_body)
+            '''
             control_time += simulation_dt
 
 
@@ -101,6 +135,24 @@ def main():
 
     save_trajectories_as_dict(x_sim, u_sim, x_pred_sim, aero_drag_sim, simulation_dt)
 
+
+
+    fig = plt.figure()
+    plt.subplot(131)
+    plt.plot(x_sim[:,7], aero_drag_sim[:,0], 'r')
+    plt.scatter(x_sim[:,7], GPE_pred_sim[:,0], c='c', s=1)
+    plt.title('GP vs aero drag x')
+    plt.legend(('Aero drag','GPE prediction'))
+    plt.subplot(132)
+    plt.plot(x_sim[:,8], aero_drag_sim[:,1], 'g')
+    plt.scatter(x_sim[:,8], GPE_pred_sim[:,1], c='c', s=1)
+    plt.title('GP vs aero drag y')
+    plt.legend(('Aero drag','GPE prediction'))
+    plt.subplot(133)
+    plt.plot(x_sim[:,9], aero_drag_sim[:,2], 'b')  
+    plt.scatter(x_sim[:,9], GPE_pred_sim[:,2], c='c', s=1)
+    plt.title('GP vs aero drag z')
+    plt.legend(('Aero drag','GPE prediction'))
 
     fig = plt.figure()
     plt.subplot(221)
