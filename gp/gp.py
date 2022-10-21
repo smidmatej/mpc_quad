@@ -16,7 +16,7 @@ class KernelFunction:
         self.L = L
         #self.L_inv = 
 
-        #self.inv_cov_matrix_of_input_data = cs.solve(self.cov_matrix_of_input_data, cs.SX.eye(self.cov_matrix_of_input_data.size1()))
+        #self.inv_cov_matrix_of_input_data = cs.solve(self.cov_matrix_of_input_data, cs.MX.eye(self.cov_matrix_of_input_data.size1()))
         self.sigma_f = sigma_f
         self.kernel_type = "SEK" # Squared exponential kernel
         self.params = {
@@ -123,12 +123,12 @@ class GPR:
         
         self.noise = theta[-1]
         
-        if isinstance(z_train, cs.SX):
+        if isinstance(z_train, cs.MX):
             self.cov_matrix_of_input_data = self.calculate_covariance_matrix(z_train, z_train, self.kernel) \
                                             + (self.noise+1e-7)*np.identity(self.n_train)
 
             # Symbolic matrix inverse using linear system solve, since cs does not have native matrix inverse method
-            self.inv_cov_matrix_of_input_data = cs.solve(self.cov_matrix_of_input_data, cs.SX.eye(self.cov_matrix_of_input_data.size1()))
+            self.inv_cov_matrix_of_input_data = cs.solve(self.cov_matrix_of_input_data, cs.MX.eye(self.cov_matrix_of_input_data.size1()))
 
         else:
             self.inv_cov_matrix_of_input_data = np.linalg.inv(
@@ -157,7 +157,7 @@ class GPR:
             cov_matrix = sigma_kk
         
         else:
-            if isinstance(at_values_z, cs.SX):
+            if isinstance(at_values_z, cs.MX):
                 mean_at_values = cs.mtimes(sigma_k.T, cs.mtimes(self.inv_cov_matrix_of_input_data, self.y_train))
                 cov_matrix = np.eye(1)
 
@@ -311,8 +311,8 @@ class GPR:
         :param: x2: n x d np.array, where n is the number of samples and d is the dimension of the regressor
         :param: kernel: Instance of a KernelFunction class
         """
-        if isinstance(x1, cs.SX) or isinstance(x2, cs.SX):
-            cov_mat = cs.SX.zeros((x1.shape[0], x2.shape[0]))
+        if isinstance(x1, cs.MX) or isinstance(x2, cs.MX):
+            cov_mat = cs.MX.zeros((x1.shape[0], x2.shape[0]))
             for i in range(x1.shape[0]):
                 #a = .reshape(1,1)
                 a = cs.reshape(x1[i,:], 1, x1.shape[1])

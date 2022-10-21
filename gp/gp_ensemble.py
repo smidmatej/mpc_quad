@@ -17,9 +17,13 @@ class GPEnsemble:
         ### TODO: Add std and variance to casadi prediction ###
 
         out_j = [None]*self.number_of_dimensions
-        if isinstance(z, cs.SX):
+        if isinstance(z, cs.MX):
             for n in range(len(self.gp)):
-                out_j[n] = self.gp[n].predict(cs.reshape(z[:,n],-1,1))
+                print(z.shape)
+                z_in_dim = z[:,n]
+                #if z_in_dim.shape == (1,)
+                print(z_in_dim)
+                out_j[n] = self.gp[n].predict(z_in_dim)
                 print(type(out_j[n]))
             concat = [out_j[n] for n in range(len(out_j))]
             #print(len(concat))

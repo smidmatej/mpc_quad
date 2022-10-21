@@ -38,7 +38,7 @@ def main():
     # initial condition
 
     quad = Quadrotor3D(payload=False, drag=True) # Controlled plant 
-    quad_opt = quad_optimizer(quad, t_horizon=1, n_nodes=20) # computing optimal control over model of plant
+    quad_opt = quad_optimizer(quad, t_horizon=1, n_nodes=20, gpe=gpe) # computing optimal control over model of plant
 
     '''
     x_trajectory = quad_opt.square_trajectory(quad_opt.n_nodes, quad_opt.optimization_dt) # arbitrary trajectory
@@ -126,6 +126,8 @@ def main():
             print("Measured drag:")
             print(a_drag_body)
             '''
+
+
             control_time += simulation_dt
 
 

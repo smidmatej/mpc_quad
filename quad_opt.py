@@ -12,19 +12,21 @@ from utils import skew_symmetric, quaternion_to_euler, unit_quat, v_dot_q, quate
 import pdb
 
 class quad_optimizer:
-    def __init__(self, quad, t_horizon=1, n_nodes=100):
+    def __init__(self, quad, t_horizon=1, n_nodes=100, gpe=None):
         
         self.n_nodes = n_nodes
         self.t_horizon = t_horizon
+        self.gpe = gpe
         #self.optimization_dt = optimization_dt
 
         self.optimization_dt = self.t_horizon/self.n_nodes
         #self.t_horizon = self.n_nodes*self.optimization_dt # look-ahead time
         
         self.quad = quad # quad is needed to create the casadi model using quad parameters
-        self.dynamics = self.setup_casadi_model()
-        
-        self.x_dot = cs.MX.sym('x_dot', self.dynamics(x=self.x, u=self.u)['x_dot'].shape)  # x_dot has the same dimensions as the dynamics function output
+        f_dict = self.setup_casadi_model()
+        self.dynamics = f_dict['f_dyn']
+        print(self.dynamics(x=self.x, u=self.u))
+        self.x_dot = cs.MX.sym('x_dot', self.dynamics(x=self.x, u=self.u)['f'].shape)  # x_dot has the same dimensions as the dynamics function output
 
         #print(dynamics(x=x, u=u)['x_dot'])
 
@@ -43,8 +45,8 @@ class quad_optimizer:
         #acados_model.x_dot = x_dot
         
         #breakpoint()
-        self.acados_model.f_expl_expr = self.dynamics(x=self.x, u=self.u)['x_dot'] # x_dot = f
-        self.acados_model.f_impl_expr = self.x_dot - self.dynamics(x=self.x, u=self.u)['x_dot'] # 0 = f - x_dot
+        self.acados_model.f_expl_expr = self.dynamics(x=self.x, u=self.u)['f'] # x_dot = f
+        self.acados_model.f_impl_expr = self.x_dot - self.dynamics(x=self.x, u=self.u)['f'] # 0 = f - x_dot
 
         #print(acados_model)
         
@@ -153,13 +155,56 @@ class quad_optimizer:
             (cs.mtimes(f_thrust.T, y_f) + (self.quad.J[1] - self.quad.J[2]) * self.r[1] * self.r[2]) / self.quad.J[0],
             (-cs.mtimes(f_thrust.T, x_f) + (self.quad.J[2] - self.quad.J[0]) * self.r[2] * self.r[0]) / self.quad.J[1],
             (cs.mtimes(f_thrust.T, c_f) + (self.quad.J[0] - self.quad.J[1]) * self.r[0] * self.r[1]) / self.quad.J[2])
-
-
-        # concatenated dynamics
-        x_dot = cs.vertcat(f_p, f_q, f_v, f_r)
         
+        # concatenated dynamics
+        f_dyn = cs.vertcat(f_p, f_q, f_v, f_r)
+
+        if self.gpe is not None:
+
+            ## WARNING: Why is this different than self.x?
+            '''
+            self.gp_p = cs.MX.sym('gp_p', 3)
+            self.gp_q = cs.MX.sym('gp_a', 4)
+            self.gp_v = cs.MX.sym('gp_v', 3)
+            self.gp_r = cs.MX.sym('gp_r', 3)
+            '''
+
+            self.gp_p = self.p
+            self.gp_q = self.q
+            self.gp_v = self.v
+            self.gp_r = self.r
+            self.gp_x = cs.vertcat(self.gp_p, self.gp_q, self.gp_v, self.gp_r)
+
+
+
+            # Transform to body frame because thats what the gpe were trained on
+            gp_v_body = v_dot_q(self.gp_v, quaternion_inverse(self.gp_q))
+            gp_x = cs.vertcat(self.gp_x[0:7], gp_v_body, self.gp_x[10:])
+            gp_u = self.u
+
+            # Symbolic prediction
+            gp_means = self.gpe.predict(gp_v_body.T).T
+            print(gp_means.shape)
+            # Transform prediction back to world frame because thats what the simulator uses
+            gp_means = v_dot_q(gp_means, gp_x[3:7])
+            # 13 x 3 matrix
+
+            B_x = np.concatenate([np.zeros((3,3)), np.diag([1,1,1]), np.zeros((4,3)), np.zeros((3,3))], axis=0)
+            print(B_x)
+            print(gp_means.shape)
+            f_augment = cs.mtimes(B_x, gp_means)
+
+            # Dynamics correction using learned GP
+            f_corrected = f_dyn + f_augment
+
+
+            # Casadi function for dynamics 
+            return {'f_dyn': cs.Function('x_dot', [self.x,self.u], [f_dyn], ['x','u'], ['f']),
+                    'f_augment': cs.Function('x_dot', [self.x,self.u], [f_augment], ['x','u'], ['f_augment'])}
+
+
         # Casadi function for dynamics 
-        return cs.Function('x_dot', [self.x,self.u], [x_dot], ['x','u'], ['x_dot'])
+        return cs.Function('x_dot', [self.x,self.u], [f_dyn], ['x','u'], ['f'])
 
     
     # this does not do anything, I want to use the acados ocp solver to make predictions, not the internal quad object, that exists only to get the model parameters
@@ -187,20 +232,20 @@ class quad_optimizer:
 
 
     def set_reference_trajectory(self, x_trajectory=None, u_trajectory=None):
-	    
-	    self.yref = np.empty((self.n_nodes,self.ny)) # prepare memory, N x ny 
-	    for j in range(self.n_nodes):
-	        #print(j)
-	        self.yref[j,:] = np.concatenate((x_trajectory[j,:], u_trajectory[j,:])) # load desired trajectory into yref
-	        #print(yref[j,:])
-	        self.acados_ocp_solver.set(j, "yref", self.yref[j,:]) # supply desired trajectory to ocp
 
-	    # end point of the trajectory has no desired u 
-	    self.yref_N = x_trajectory[-1,:]
-	    self.acados_ocp_solver.set(self.n_nodes, "yref", self.yref_N) # dimension nx
+        self.yref = np.empty((self.n_nodes,self.ny)) # prepare memory, N x ny 
+        for j in range(self.n_nodes):
+            #print(j)
+            self.yref[j,:] = np.concatenate((x_trajectory[j,:], u_trajectory[j,:])) # load desired trajectory into yref
+            #print(yref[j,:])
+            self.acados_ocp_solver.set(j, "yref", self.yref[j,:]) # supply desired trajectory to ocp
 
-	    return self.yref, self.yref_N
-	    
+        # end point of the trajectory has no desired u 
+        self.yref_N = x_trajectory[-1,:]
+        self.acados_ocp_solver.set(self.n_nodes, "yref", self.yref_N) # dimension nx
+
+        return self.yref, self.yref_N
+
 
     
     def run_optimization(self, x_init=None):
@@ -238,10 +283,10 @@ class quad_optimizer:
         # Fixed step Runge-Kutta 4 integrator
 
     
-        k1 = self.dynamics(x=x, u=u)['x_dot']
-        k2 = self.dynamics(x=x + dt / 2 * k1, u=u)['x_dot']
-        k3 = self.dynamics(x=x + dt / 2 * k2, u=u)['x_dot']
-        k4 = self.dynamics(x=x + dt * k3, u=u)['x_dot']
+        k1 = self.dynamics(x=x, u=u)['f']
+        k2 = self.dynamics(x=x + dt / 2 * k1, u=u)['f']
+        k3 = self.dynamics(x=x + dt / 2 * k2, u=u)['f']
+        k4 = self.dynamics(x=x + dt * k3, u=u)['f']
         x_out = x + dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
 
         #print(x_out)
@@ -262,32 +307,32 @@ class quad_optimizer:
 
     @staticmethod
     def square_trajectory(n=10, dt=0.1):
-    	# Calculate a square trajectory, static method
-	    #dt = optimization_dt
-	    v_max = 10
-	    
-	    nx = 13
-	    t_section = np.arange(0,n*dt/4,dt)
-	    p0 = np.array([0,0,0])
-	    v = np.array([v_max,0,0])
-	    p_target = p0[np.newaxis,:] + v*t_section[:,np.newaxis]
-	    
-	    p0 = p_target[-1,:]
-	    v = np.array([0,v_max,0])
-	    p_target = np.concatenate((p_target, p0[np.newaxis,:] + v*t_section[:,np.newaxis]))
-	    
-	    p0 = p_target[-1,:]
-	    v = np.array([-v_max,0,0])
-	    p_target = np.concatenate((p_target, p0[np.newaxis,:] + v*t_section[:,np.newaxis]))
-	    
-	    p0 = p_target[-1,:]
-	    v = np.array([0,-v_max,0])
-	    p_target = np.concatenate((p_target, p0[np.newaxis,:] + v*t_section[:,np.newaxis]))    
-	    
-	    x_target = np.zeros((p_target.shape[0], nx))
-	    x_target[:,3] = 1
-	    x_target[:,0:3] = p_target
-	    return x_target
+        # Calculate a square trajectory, static method
+        #dt = optimization_dt
+        v_max = 10
+
+        nx = 13
+        t_section = np.arange(0,n*dt/4,dt)
+        p0 = np.array([0,0,0])
+        v = np.array([v_max,0,0])
+        p_target = p0[np.newaxis,:] + v*t_section[:,np.newaxis]
+
+        p0 = p_target[-1,:]
+        v = np.array([0,v_max,0])
+        p_target = np.concatenate((p_target, p0[np.newaxis,:] + v*t_section[:,np.newaxis]))
+
+        p0 = p_target[-1,:]
+        v = np.array([-v_max,0,0])
+        p_target = np.concatenate((p_target, p0[np.newaxis,:] + v*t_section[:,np.newaxis]))
+
+        p0 = p_target[-1,:]
+        v = np.array([0,-v_max,0])
+        p_target = np.concatenate((p_target, p0[np.newaxis,:] + v*t_section[:,np.newaxis]))    
+
+        x_target = np.zeros((p_target.shape[0], nx))
+        x_target[:,3] = 1
+        x_target[:,0:3] = p_target
+        return x_target
 
 
 '''
