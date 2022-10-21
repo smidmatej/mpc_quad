@@ -24,17 +24,21 @@ def main():
     # load GPE 
 
 
+    save_path = "gp/models/ensemble"
+    gpe = GPEnsemble(3)
+    gpe.load(save_path)
 
 
 
-    Nsim = 50 # number of simulation steps
+
+    Nsim = 100 # number of simulation steps
 
     simulation_dt = 5e-4
 
     # initial condition
 
     quad = Quadrotor3D(payload=False, drag=True) # Controlled plant 
-    quad_opt = quad_optimizer(quad, t_horizon=1, n_nodes=20) # computing optimal control over model of plant
+    quad_opt = quad_optimizer(quad, t_horizon=1, n_nodes=20, gpe=gpe) # computing optimal control over model of plant
 
     '''
     x_trajectory = quad_opt.square_trajectory(quad_opt.n_nodes, quad_opt.optimization_dt) # arbitrary trajectory
@@ -110,7 +114,18 @@ def main():
             yref_sim = np.append(yref_sim, yref_now.reshape((1, yref_now.shape[0])), axis=0)
             aero_drag_sim = np.append(aero_drag_sim, a_drag_body.reshape((1, a_drag_body.shape[0])), axis=0)
 
+            # GPE prediction
+            v_body = x_to_save[7:10]
 
+            a_error_gpe = gpe.predict(v_body)
+            #a_error_gpe = v_dot_q(a_error_gpe.T, x[3:7])
+            GPE_pred_sim = np.append(GPE_pred_sim, a_error_gpe.reshape((1, -1)), axis=0)
+            '''
+            print("GPE prediction:")
+            print(a_error_gpe)
+            print("Measured drag:")
+            print(a_drag_body)
+            '''
 
 
             control_time += simulation_dt
@@ -123,6 +138,23 @@ def main():
     save_trajectories_as_dict(x_sim, u_sim, x_pred_sim, aero_drag_sim, simulation_dt)
 
 
+
+    fig = plt.figure()
+    plt.subplot(131)
+    plt.plot(x_sim[:,7], aero_drag_sim[:,0], 'r')
+    plt.scatter(x_sim[:,7], GPE_pred_sim[:,0], c='c', s=1)
+    plt.title('GP vs aero drag x')
+    plt.legend(('Aero drag','GPE prediction'))
+    plt.subplot(132)
+    plt.plot(x_sim[:,8], aero_drag_sim[:,1], 'g')
+    plt.scatter(x_sim[:,8], GPE_pred_sim[:,1], c='c', s=1)
+    plt.title('GP vs aero drag y')
+    plt.legend(('Aero drag','GPE prediction'))
+    plt.subplot(133)
+    plt.plot(x_sim[:,9], aero_drag_sim[:,2], 'b')  
+    plt.scatter(x_sim[:,9], GPE_pred_sim[:,2], c='c', s=1)
+    plt.title('GP vs aero drag z')
+    plt.legend(('Aero drag','GPE prediction'))
 
     fig = plt.figure()
     plt.subplot(221)

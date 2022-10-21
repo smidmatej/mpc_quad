@@ -352,7 +352,7 @@ void quad_OCP_acados_create_5_set_nlp_in(quad_OCP_solver_capsule* capsule, const
     if (new_time_steps) {
         quad_OCP_acados_update_time_steps(capsule, N, new_time_steps);
     } else {// all time_steps are identical
-        double time_step = 0.05;
+        double time_step = 0.06;
         for (int i = 0; i < N; i++)
         {
             ocp_nlp_in_set(nlp_config, nlp_dims, nlp_in, i, "Ts", &time_step);
@@ -371,16 +371,9 @@ void quad_OCP_acados_create_5_set_nlp_in(quad_OCP_solver_capsule* capsule, const
     /**** Cost ****/
     double* W_0 = calloc(NY0*NY0, sizeof(double));
     // change only the non-zero elements:
-    W_0[0+(NY0) * 0] = 10;
-    W_0[1+(NY0) * 1] = 10;
-    W_0[2+(NY0) * 2] = 10;
-    W_0[3+(NY0) * 3] = 0.10000000000000002;
-    W_0[4+(NY0) * 4] = 0.1;
-    W_0[5+(NY0) * 5] = 0.1;
-    W_0[6+(NY0) * 6] = 0.1;
-    W_0[7+(NY0) * 7] = 0.05;
-    W_0[8+(NY0) * 8] = 0.05;
-    W_0[9+(NY0) * 9] = 0.05;
+    W_0[0+(NY0) * 0] = 100;
+    W_0[1+(NY0) * 1] = 100;
+    W_0[2+(NY0) * 2] = 100;
     W_0[10+(NY0) * 10] = 0.05;
     W_0[11+(NY0) * 11] = 0.05;
     W_0[12+(NY0) * 12] = 0.05;
@@ -397,16 +390,9 @@ void quad_OCP_acados_create_5_set_nlp_in(quad_OCP_solver_capsule* capsule, const
     free(yref_0);
     double* W = calloc(NY*NY, sizeof(double));
     // change only the non-zero elements:
-    W[0+(NY) * 0] = 10;
-    W[1+(NY) * 1] = 10;
-    W[2+(NY) * 2] = 10;
-    W[3+(NY) * 3] = 0.10000000000000002;
-    W[4+(NY) * 4] = 0.1;
-    W[5+(NY) * 5] = 0.1;
-    W[6+(NY) * 6] = 0.1;
-    W[7+(NY) * 7] = 0.05;
-    W[8+(NY) * 8] = 0.05;
-    W[9+(NY) * 9] = 0.05;
+    W[0+(NY) * 0] = 100;
+    W[1+(NY) * 1] = 100;
+    W[2+(NY) * 2] = 100;
     W[10+(NY) * 10] = 0.05;
     W[11+(NY) * 11] = 0.05;
     W[12+(NY) * 12] = 0.05;
@@ -494,16 +480,9 @@ void quad_OCP_acados_create_5_set_nlp_in(quad_OCP_solver_capsule* capsule, const
 
     double* W_e = calloc(NYN*NYN, sizeof(double));
     // change only the non-zero elements:
-    W_e[0+(NYN) * 0] = 10;
-    W_e[1+(NYN) * 1] = 10;
-    W_e[2+(NYN) * 2] = 10;
-    W_e[3+(NYN) * 3] = 0.10000000000000002;
-    W_e[4+(NYN) * 4] = 0.1;
-    W_e[5+(NYN) * 5] = 0.1;
-    W_e[6+(NYN) * 6] = 0.1;
-    W_e[7+(NYN) * 7] = 0.05;
-    W_e[8+(NYN) * 8] = 0.05;
-    W_e[9+(NYN) * 9] = 0.05;
+    W_e[0+(NYN) * 0] = 100;
+    W_e[1+(NYN) * 1] = 100;
+    W_e[2+(NYN) * 2] = 100;
     W_e[10+(NYN) * 10] = 0.05;
     W_e[11+(NYN) * 11] = 0.05;
     W_e[12+(NYN) * 12] = 0.05;

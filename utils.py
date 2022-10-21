@@ -843,6 +843,32 @@ def separate_variables(traj):
 
 
 
+def square_trajectory(n=10, dt=0.1):
+    # Calculate a square trajectory, static method
+    #dt = optimization_dt
+    v_max = 3
 
+    nx = 13
+    t_section = np.arange(0,n*dt/4,dt)
+    p0 = np.array([0,0,0])
+    v = np.array([v_max,0,0])
+    p_target = p0[np.newaxis,:] + v*t_section[:,np.newaxis]
+
+    p0 = p_target[-1,:]
+    v = np.array([0,v_max,0])
+    p_target = np.concatenate((p_target, p0[np.newaxis,:] + v*t_section[:,np.newaxis]))
+
+    p0 = p_target[-1,:]
+    v = np.array([-v_max,0,0])
+    p_target = np.concatenate((p_target, p0[np.newaxis,:] + v*t_section[:,np.newaxis]))
+
+    p0 = p_target[-1,:]
+    v = np.array([0,-v_max,0])
+    p_target = np.concatenate((p_target, p0[np.newaxis,:] + v*t_section[:,np.newaxis]))    
+
+    x_target = np.zeros((p_target.shape[0], nx))
+    x_target[:,3] = 1
+    x_target[:,0:3] = p_target
+    return x_target
 
 

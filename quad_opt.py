@@ -23,9 +23,9 @@ class quad_optimizer:
         #self.t_horizon = self.n_nodes*self.optimization_dt # look-ahead time
         
         self.quad = quad # quad is needed to create the casadi model using quad parameters
-        f_dict = self.setup_casadi_model()
-        self.dynamics = f_dict['f_dyn']
-        print(self.dynamics(x=self.x, u=self.u))
+        self.dynamics = self.setup_casadi_model()
+        #self.dynamics = self.f_dict['f_dyn']# + self.f_dict['f_augment'] 
+       
         self.x_dot = cs.MX.sym('x_dot', self.dynamics(x=self.x, u=self.u)['f'].shape)  # x_dot has the same dimensions as the dynamics function output
 
         #print(dynamics(x=x, u=u)['x_dot'])
@@ -82,7 +82,9 @@ class quad_optimizer:
         #q_cost = np.array([10, 10, 10, 0.1, 0.1, 0.1, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]) # euler angles
         #q_cost = np.array([0, 1000, 1, 0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]) # euler angles
         
-        q_cost = np.array([10, 10, 10] +  [0.1, 0.1, 0.1] + [0.05, 0.05, 0.05] + [0.05, 0.05, 0.05])
+        #q_cost = np.array([10, 10, 10] +  [0.1, 0.1, 0.1] + [0.05, 0.05, 0.05] + [0.05, 0.05, 0.05]) # ORIGINAL
+
+        q_cost = np.array([100, 100, 100] + [0.0, 0.0, 0.0] + [0.0, 0.0, 0.0] + [0.05, 0.05, 0.05]) # MPC doesnt care about linear or angular velocity
         # add one more weigth to account for the 4 quaternions instead of 3 EA
         q_diagonal = np.concatenate((q_cost[:3], np.mean(q_cost[3:6])[np.newaxis], q_cost[3:]))
         r_cost = np.array([0.1, 0.1, 0.1, 0.1]) # u cost (dim 4)
@@ -115,6 +117,10 @@ class quad_optimizer:
         json_file = '_acados_ocp.json'
         
         self.acados_ocp_solver = AcadosOcpSolver(self.acados_ocp, json_file=json_file)
+
+        print(f'Optimizer MPC lookahead time={self.t_horizon}s, Number of timesteps in prediction horizon={self.n_nodes}')
+
+
         
     def setup_casadi_model(self):
         
@@ -184,14 +190,13 @@ class quad_optimizer:
 
             # Symbolic prediction
             gp_means = self.gpe.predict(gp_v_body.T).T
-            print(gp_means.shape)
+
             # Transform prediction back to world frame because thats what the simulator uses
             gp_means = v_dot_q(gp_means, gp_x[3:7])
             # 13 x 3 matrix
 
-            B_x = np.concatenate([np.zeros((3,3)), np.diag([1,1,1]), np.zeros((4,3)), np.zeros((3,3))], axis=0)
-            print(B_x)
-            print(gp_means.shape)
+            B_x = np.concatenate([np.zeros((3,3)), np.zeros((4,3)), np.diag([1,1,1]), np.zeros((3,3))], axis=0)
+
             f_augment = cs.mtimes(B_x, gp_means)
 
             # Dynamics correction using learned GP
@@ -199,6 +204,7 @@ class quad_optimizer:
 
 
             # Casadi function for dynamics 
+            return cs.Function('x_dot', [self.x,self.u], [f_corrected], ['x','u'], ['f'])
             return {'f_dyn': cs.Function('x_dot', [self.x,self.u], [f_dyn], ['x','u'], ['f']),
                     'f_augment': cs.Function('x_dot', [self.x,self.u], [f_augment], ['x','u'], ['f_augment'])}
 
@@ -276,7 +282,7 @@ class quad_optimizer:
             x_opt_acados[i + 1, :] = self.acados_ocp_solver.get(i + 1, "x") # state under optimal control
 
         #w_opt_acados = np.reshape(w_opt_acados, (-1))
-        return x_opt_acados, w_opt_acados
+        return x_opt_acados, w_opt_acados, self.acados_ocp_solver.get_stats('time_tot'), self.acados_ocp_solver.get_cost()
 
 
     def discrete_dynamics(self, x, u, dt, body_frame=False):
@@ -305,34 +311,7 @@ class quad_optimizer:
 
 
 
-    @staticmethod
-    def square_trajectory(n=10, dt=0.1):
-        # Calculate a square trajectory, static method
-        #dt = optimization_dt
-        v_max = 10
 
-        nx = 13
-        t_section = np.arange(0,n*dt/4,dt)
-        p0 = np.array([0,0,0])
-        v = np.array([v_max,0,0])
-        p_target = p0[np.newaxis,:] + v*t_section[:,np.newaxis]
-
-        p0 = p_target[-1,:]
-        v = np.array([0,v_max,0])
-        p_target = np.concatenate((p_target, p0[np.newaxis,:] + v*t_section[:,np.newaxis]))
-
-        p0 = p_target[-1,:]
-        v = np.array([-v_max,0,0])
-        p_target = np.concatenate((p_target, p0[np.newaxis,:] + v*t_section[:,np.newaxis]))
-
-        p0 = p_target[-1,:]
-        v = np.array([0,-v_max,0])
-        p_target = np.concatenate((p_target, p0[np.newaxis,:] + v*t_section[:,np.newaxis]))    
-
-        x_target = np.zeros((p_target.shape[0], nx))
-        x_target[:,3] = 1
-        x_target[:,0:3] = p_target
-        return x_target
 
 
 '''
