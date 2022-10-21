@@ -3,6 +3,7 @@ from numpy.linalg import cholesky, det
 from scipy.linalg import solve_triangular
 from scipy.optimize import minimize
 import casadi as cs
+import joblib
 
 class KernelFunction:
     def __init__(self,L=np.eye(10),sigma_f=1):
@@ -17,6 +18,11 @@ class KernelFunction:
 
         #self.inv_cov_matrix_of_input_data = cs.solve(self.cov_matrix_of_input_data, cs.SX.eye(self.cov_matrix_of_input_data.size1()))
         self.sigma_f = sigma_f
+        self.kernel_type = "SEK" # Squared exponential kernel
+        self.params = {
+                        "L": self.L,
+                        "sigma_f": self.sigma_f
+                        }
         
     def __call__(self, x1, x2):
         """
@@ -25,6 +31,7 @@ class KernelFunction:
         :param: x1: np.array or cs.MX of dimension 1 x d 
         :param: x2: np.array or cs.MX of dimension 1 x d 
         """
+        assert self.kernel_type == "SEK", f"Kernel type is not of type SEK, kernel_type={self.kernel_type}"
 
         if isinstance(x1, np.ndarray) and isinstance(x2, np.ndarray): 
             # assure that x is not onedimensional
@@ -63,8 +70,11 @@ class GPR:
         :param: covariance_function: Reference to a KernelFunction
         :param: theta: np.array of hyperparameters
         """
-
-        self.initialize(z_train, y_train, covariance_function, theta)
+        if z_train is None and y_train is None and covariance_function is None and theta is None:
+            # do nothing
+            1+1
+        else:
+            self.initialize(z_train, y_train, covariance_function, theta)
 
         
     def initialize(self, z_train, y_train, covariance_function, theta):
@@ -247,7 +257,48 @@ class GPR:
                        0.5 * self.y_train.T.dot(S2) + \
                        0.5 * self.z_train.shape[0] * np.log(2*np.pi)).flatten()
         return neg_log_lklhd
+
+
+    def save(self, path):
+        """
+        Saves the current GP  to the specified path as a pickle file. Must be re-loaded with the function load
+        :param path: absolute path to save the regressor to
+        """
+
+        saved_vars = {
+            "kernel_params": self.kernel.params,
+            "kernel_type": self.kernel.kernel_type,
+            "z_train": self.z_train,
+            "y_train": self.y_train,
+            "theta": self.theta,
+            "z_dim": self.z_dim,
+        }
+
+        with open(path, 'wb') as f:
+            joblib.dump(saved_vars, f)
         
+    def load(self, path):
+        """
+        Load a pre-trained GP regressor
+        :param data_dict: a dictionary with all the pre-trained matrices of the GP regressor
+        """
+        data_dict = joblib.load(path)
+
+        #self.kernel.params = data_dict['kernel_params']
+        #self.kernel.kernel_type = data_dict['kernel_type']
+        '''
+        self.z_train = data_dict['z_train']
+        self.y_train = data_dict['y_train']
+        self.theta = data_dict['theta']
+        self.kernel = KernelFunction(data_dict['kernel_params']['L'], data_dict['kernel_params']['sigma_f'])
+        self.sigma_n = self.theta[-1]
+        '''
+        self.initialize(data_dict['z_train'], data_dict['y_train'], KernelFunction, data_dict['theta'])
+        
+
+
+
+
     @staticmethod
     def calculate_covariance_matrix(x1,x2, kernel):
         """

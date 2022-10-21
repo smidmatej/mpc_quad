@@ -6,7 +6,7 @@ import casadi as cs
 class GPEnsemble:
 
     
-    def __init__(self, number_of_dimensions):
+    def __init__(self, number_of_dimensions=0):
         self.gp = [None]*number_of_dimensions
         self.number_of_dimensions = number_of_dimensions
         
@@ -42,6 +42,8 @@ class GPEnsemble:
             
         
     
+    
+
     def fit(self):
         for gpr in self.gp:
             gpr.fit()
@@ -59,3 +61,35 @@ class GPEnsemble:
         for col in range(self.number_of_dimensions):
             f_jacobs.append(self.gp[col].jacobian(z[:,col]))
         return f_jacobs
+
+    def save(self, path, xyz=True):
+        if xyz: 
+            xyz_name = ['x','y','z']
+            # GPE contains 3 GPs, one for each dimension
+
+            for gpr_index in range(len(self.gp)):
+                path_with_name = path.join(xyz_name[gpr_index]) 
+                self.gp[gpr_index].save(path_with_name)
+        
+        else:
+            raise NotImplementedError
+
+    def load(self, path, xyz=True):
+        if xyz: 
+            xyz_name = ['x','y','z']
+            # GPE contains 3 GPs, one for each dimension
+
+            # Discard the old GPE contents
+            #self.gp = list()
+            for gpr_index in range(len(xyz_name)):
+                path_with_name = path.join(xyz_name[gpr_index]) 
+                
+                # Create a new empty GPR and add it to GPE
+                self.add_gp(GPR(None,None,None,None), gpr_index)
+                
+                # Call the load method of the new empty GPR
+                self.gp[gpr_index].load(path_with_name)
+
+            self.number_of_dimensions = len(self.gp)
+        else:
+            raise NotImplementedError

@@ -3,7 +3,7 @@ Implementation of MPC controller for a quadrocopter model using python. This rep
 
 Using a python simulation, we tracked a trajectory using an MPC controller. The simulated quadcopter was subject to a quadratic air resistence term which the MPC prediction model does not have access to. This caused a difference between the predicted velocities and the actual velocities of the quadcopter. 
 
-$$\hat{a}_{\text{error}}= \frac{v_{\text{true}}-v_{\text{pred}}}{\Delta t}$$
+$$\hat{a}_{\text{error}} = \frac{v_{\text{true}}-v_{\text{pred}}}{\Delta t}$$
 
 
 Using a [Gaussian process](https://github.com/smidmatej/Gaussian-process) regression, we can fit the acceleration error in axis x to a velocity in x (and for y and z too).
