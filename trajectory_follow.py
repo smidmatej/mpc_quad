@@ -29,15 +29,11 @@ def main():
     gpe.load(save_path)
 
 
-
-    
     t_simulation = 3 # Simulation duration for this script
-    simulation_dt = 5e-3 # Timestep simulation for the physics
-
-
+    simulation_dt = 5e-4 # Timestep simulation for the physics
 
     # MPC prediction horizon
-    t_lookahead = 3 # Prediction horizon duration
+    t_lookahead = 1 # Prediction horizon duration
     n_nodes = 50 # Prediction horizon number of timesteps in t_lookahead
 
 
@@ -54,7 +50,7 @@ def main():
 
     print(f'Duration of simulation={t_simulation}, Number of simulated MPC steps={Nopt}')
     
-    x_trajectory = utils.square_trajectory(Nopt, quad_opt.optimization_dt) # arbitrary trajectory
+    x_trajectory = utils.square_trajectory(Nopt, quad_opt.optimization_dt, v=20) # arbitrary trajectory
     u_trajectory = np.ones((x_trajectory.shape[0], 4))*0.16 # 0.16 is hover thrust 
 
     # set the created trajectory to the ocp solver
@@ -85,8 +81,9 @@ def main():
     for i in tqdm(range(Nopt)):
 
 
-
-        yref, yref_N = quad_opt.set_reference_state(x_trajectory[i,:])
+        x_ref = utils.get_reference_chunk(x_trajectory, i, quad_opt.n_nodes)
+        yref, yref_N = quad_opt.set_reference_trajectory(x_ref)
+        #yref, yref_N = quad_opt.set_reference_state(x_trajectory[i,:])
         yref_now = yref[0,:]
 
 

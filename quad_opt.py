@@ -123,7 +123,9 @@ class quad_optimizer:
 
         
     def setup_casadi_model(self):
-        
+        """
+        Creates the appropriate symbolic variables as class fields and returns the dynamic equation of the quad model 
+        """
         self.p = cs.MX.sym('p',3) # Position
         self.q = cs.MX.sym('q',4) # Quaternion
 
@@ -167,49 +169,29 @@ class quad_optimizer:
 
         if self.gpe is not None:
 
-            ## WARNING: Why is this different than self.x?
-            '''
-            self.gp_p = cs.MX.sym('gp_p', 3)
-            self.gp_q = cs.MX.sym('gp_a', 4)
-            self.gp_v = cs.MX.sym('gp_v', 3)
-            self.gp_r = cs.MX.sym('gp_r', 3)
-            '''
-
-            self.gp_p = self.p
-            self.gp_q = self.q
-            self.gp_v = self.v
-            self.gp_r = self.r
-            self.gp_x = cs.vertcat(self.gp_p, self.gp_q, self.gp_v, self.gp_r)
-
-
-
             # Transform to body frame because thats what the gpe were trained on
-            gp_v_body = v_dot_q(self.gp_v, quaternion_inverse(self.gp_q))
-            gp_x = cs.vertcat(self.gp_x[0:7], gp_v_body, self.gp_x[10:])
-            gp_u = self.u
+            v_body = v_dot_q(self.v, quaternion_inverse(self.q))
+            #x_body = cs.vertcat(self.x[0:7], v_body, self.x[10:])
+
 
             # Symbolic prediction
-            gp_means = self.gpe.predict(gp_v_body.T).T
+            gp_means = self.gpe.predict(v_body.T).T
 
             # Transform prediction back to world frame because thats what the simulator uses
-            gp_means = v_dot_q(gp_means, gp_x[3:7])
-            # 13 x 3 matrix
-
+            gp_means = v_dot_q(gp_means, self.q)
+            
+            # 13 x 3 matrix that maps the 3 gpe means to dvx, dvy, dvz 
             B_x = np.concatenate([np.zeros((3,3)), np.zeros((4,3)), np.diag([1,1,1]), np.zeros((3,3))], axis=0)
-
             f_augment = cs.mtimes(B_x, gp_means)
 
             # Dynamics correction using learned GP
             f_corrected = f_dyn + f_augment
 
 
-            # Casadi function for dynamics 
+            # Dynamics corrected using the gpe 
             return cs.Function('x_dot', [self.x,self.u], [f_corrected], ['x','u'], ['f'])
-            return {'f_dyn': cs.Function('x_dot', [self.x,self.u], [f_dyn], ['x','u'], ['f']),
-                    'f_augment': cs.Function('x_dot', [self.x,self.u], [f_augment], ['x','u'], ['f_augment'])}
 
-
-        # Casadi function for dynamics 
+        # Dynamics w/o the gpe augmentation
         return cs.Function('x_dot', [self.x,self.u], [f_dyn], ['x','u'], ['f'])
 
     
@@ -218,6 +200,10 @@ class quad_optimizer:
         self.quad.set_state(x)
         
     def set_reference_state(self, x_target=None, u_target=None):
+        """
+        Sets the state x_target as the reference state over the whole optimization horizon (quad_opt.n_nodes)
+        :param: x_target: np.array of shape 1 x nx
+        """
         if u_target is None:
             u_target = np.ones((self.nu,))*0.16 # hover
         if x_target is None:
@@ -237,9 +223,15 @@ class quad_optimizer:
         return self.yref, self.yref_N
 
 
-    def set_reference_trajectory(self, x_trajectory=None, u_trajectory=None):
+    def set_reference_trajectory(self, x_trajectory, u_trajectory=None):
+        """
+        Passes x_trajectory to acados_ocp_solver. Acados_ocp_solver then tries to find the optimal control
+        :param: x_trajectory: x_trajectory has to have the same length as quad_opt.n_nodes
+        """
+        if u_trajectory is None:
+            u_trajectory = np.ones((self.n_nodes, 4))*0.16 # hover
 
-        self.yref = np.empty((self.n_nodes,self.ny)) # prepare memory, N x ny 
+        self.yref = np.empty((self.n_nodes, self.ny)) # prepare memory, N x ny 
         for j in range(self.n_nodes):
             #print(j)
             self.yref[j,:] = np.concatenate((x_trajectory[j,:], u_trajectory[j,:])) # load desired trajectory into yref
@@ -255,7 +247,9 @@ class quad_optimizer:
 
     
     def run_optimization(self, x_init=None):
-
+        """
+        Performs the acados_ocp_solver.solve() method with the current parameters and returns the solution
+        """
         if x_init is None:
             x_init = np.array([0,0,0, 1,0,0,0, 0,0,0, 0,0,0]) 
 
@@ -286,8 +280,13 @@ class quad_optimizer:
 
 
     def discrete_dynamics(self, x, u, dt, body_frame=False):
-        # Fixed step Runge-Kutta 4 integrator
-
+        # 
+        """
+        Fixed step Runge-Kutta 4 of the dynamic equation in self.dynamics
+        :param: x: State 1 x nx to discretize around
+        :param: u: Conrol 1 x nu to discretize around
+        :param: dt: Time step for dicretization
+        """
     
         k1 = self.dynamics(x=x, u=u)['f']
         k2 = self.dynamics(x=x + dt / 2 * k1, u=u)['f']

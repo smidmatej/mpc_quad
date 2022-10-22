@@ -47,7 +47,7 @@
 
 #include "simstruc.h"
 
-#define SAMPLINGTIME 0.06
+#define SAMPLINGTIME 0.02
 
 static void mdlInitializeSizes (SimStruct *S)
 {
