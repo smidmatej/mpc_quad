@@ -29,12 +29,12 @@ def main():
     gpe.load(save_path)
 
 
-    t_simulation = 3 # Simulation duration for this script
+    t_simulation = 10 # Simulation duration for this script
     simulation_dt = 5e-4 # Timestep simulation for the physics
 
     # MPC prediction horizon
     t_lookahead = 1 # Prediction horizon duration
-    n_nodes = 50 # Prediction horizon number of timesteps in t_lookahead
+    n_nodes = 20 # Prediction horizon number of timesteps in t_lookahead
 
 
     # initial condition
@@ -44,17 +44,25 @@ def main():
 
     # Simulation runs for t_simulation seconds and MPC is calculated every quad_opt.optimization_dt
     Nopt = round(t_simulation/quad_opt.optimization_dt) # number of times MPC control is calculated steps
+    
     Nsim = round(t_simulation/simulation_dt)
 
 
 
-    print(f'Duration of simulation={t_simulation}, Number of simulated MPC steps={Nopt}')
+
     
-    x_trajectory = utils.square_trajectory(Nopt, quad_opt.optimization_dt, v=20) # arbitrary trajectory
+    #x_trajectory = utils.square_trajectory(Nopt, quad_opt.optimization_dt, v=20) # arbitrary trajectory
+
+    # trajectory has a specific time step that I do not respect here
+    x_trajectory, t_trajectory = utils.load_trajectory('trajectory_generation/trajectories/trajectory_sampled.csv')
+    #Nopt = round(t_simulation/(t_trajectory[1] - t_trajectory[0]))
     u_trajectory = np.ones((x_trajectory.shape[0], 4))*0.16 # 0.16 is hover thrust 
 
     # set the created trajectory to the ocp solver
-    yref, yref_N = quad_opt.set_reference_trajectory(x_trajectory, u_trajectory)
+    traj_dt = t_trajectory[1] - t_trajectory[0]
+
+    undersampling = round(quad_opt.optimization_dt/(traj_dt))
+    yref, yref_N = quad_opt.set_reference_trajectory(x_trajectory, u_trajectory, undersampling=undersampling)
 
 
     x = np.array([0,0,0] + [1,0,0,0] + [0,0,0] + [0,0,0])
@@ -77,15 +85,14 @@ def main():
     # Set quad to start position
     quad.set_state(x)
 
+    print(f'Duration of simulation={t_simulation}, Number of simulation steps={Nopt}')
     # IDEA : create a 3D array of Nopt, stateidx, n_node ## How to visualize?
+    simulation_time = 0
     for i in tqdm(range(Nopt)):
-
+        #print(simulation_time)
 
         x_ref = utils.get_reference_chunk(x_trajectory, i, quad_opt.n_nodes)
-        yref, yref_N = quad_opt.set_reference_trajectory(x_ref)
-        #yref, yref_N = quad_opt.set_reference_state(x_trajectory[i,:])
-        yref_now = yref[0,:]
-
+        yref, yref_N = quad_opt.set_reference_trajectory(x_ref, undersampling=undersampling)
 
 
         # I dont think I need to run optimization more times as with the case of new opt
@@ -121,6 +128,7 @@ def main():
 
             x_sim = np.append(x_sim, x_to_save.reshape((1, x_to_save.shape[0])), axis=0)
             x_pred_sim = np.append(x_pred_sim, x_pred.reshape((1,x.shape[0])), axis=0)
+            yref_now = yref[0,:]
             yref_sim = np.append(yref_sim, yref_now.reshape((1, yref_now.shape[0])), axis=0)
             aero_drag_sim = np.append(aero_drag_sim, a_drag_body.reshape((1, a_drag_body.shape[0])), axis=0)
 
@@ -129,6 +137,7 @@ def main():
 
 
             control_time += simulation_dt
+        simulation_time += quad_opt.optimization_dt
     
 
     t = np.linspace(0, t_simulation, x_sim.shape[0])

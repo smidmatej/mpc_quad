@@ -7,14 +7,16 @@ import numpy as np
 
 def main():
         
-    trajectory_filename = 'trajectories/traj1.csv'
+    polynom_filename = 'trajectories/polynomial_representation.csv'
+    waypoint_filename = 'waypoints/waypoints1.csv'
 
-    os.system('./genTrajectory -i waypoints/waypoints1.csv -o ' + trajectory_filename + ' --v_max 2.0 --a_max 1.0')
+    v_max = 10.0
+    a_max = 10.0
 
-
+    os.system('./genTrajectory -i '+ waypoint_filename + ' -o ' + polynom_filename + ' --v_max ' + str(v_max) + ' --a_max ' + str(a_max))
 
     traj = uav_trajectory.Trajectory()
-    traj.loadcsv(trajectory_filename)
+    traj.loadcsv(polynom_filename)
     output_trajectory_filename = 'trajectories/trajectory_sampled.csv'
     save_evals_csv(traj,output_trajectory_filename)
     #os.system('python plot_trajectory.py trajectories/traj1.csv')

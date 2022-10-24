@@ -841,7 +841,28 @@ def separate_variables(traj):
     r_traj = traj[:, 10:]
     return [p_traj, a_traj, v_traj, r_traj]
 
+def load_trajectory(filename):
+    """
+    Loads a trajectory from a .csv file.
 
+    :param filename: path to the .csv file
+    :return: a numpy array with the trajectory
+    """
+    #breakpoint()
+    data = np.genfromtxt(filename, delimiter=',')
+    traj_t = data[:, 0]
+    traj_pos = data[:, 1:4]
+    traj_vel = data[:, 4:7]
+
+    # csv does not contain orientation data
+    traj_q = np.repeat(np.array([1,0,0,0]), len(traj_t)).reshape(len(traj_t), 4)
+    traj_r = np.repeat(np.array([0,0,0]), len(traj_t)).reshape(len(traj_t), 3)
+
+    # Acceleration data is redundant
+    traj_a = data[:, 7:10]
+
+    traj_x = np.concatenate((traj_pos, traj_q, traj_vel, traj_r), axis=1)
+    return traj_x, traj_t
 
 def square_trajectory(n=10, dt=0.1, v=3):
     # Calculate a square trajectory, static method
@@ -887,12 +908,12 @@ def square_trajectory(n=10, dt=0.1, v=3):
     return x_target
 
 
-def get_reference_chunk(reference_trajectory, current_idx, control_nodes):
+def get_reference_chunk(reference_trajectory, current_idx, control_nodes, undersample=1):
     
     nodes_left_in_trajectory = reference_trajectory.shape[0] - current_idx
     if nodes_left_in_trajectory > control_nodes:
         # Not at the end of the trajectory, just pass the next chunk
-        reference_chunk = reference_trajectory[current_idx:current_idx+control_nodes, :]
+        reference_chunk = reference_trajectory[current_idx:current_idx+control_nodes:, :]
 
     else:
         # I have less trajectory nodes than control_nodes

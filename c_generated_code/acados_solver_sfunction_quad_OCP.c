@@ -47,7 +47,7 @@
 
 #include "simstruc.h"
 
-#define SAMPLINGTIME 0.02
+#define SAMPLINGTIME 0.05
 
 static void mdlInitializeSizes (SimStruct *S)
 {
@@ -71,13 +71,13 @@ static void mdlInitializeSizes (SimStruct *S)
     // y_ref_0
     ssSetInputPortVectorDimension(S, 2, 17);
     // y_ref
-    ssSetInputPortVectorDimension(S, 3, 833);
+    ssSetInputPortVectorDimension(S, 3, 323);
     // y_ref_e
     ssSetInputPortVectorDimension(S, 4, 13);
     // lbu
-    ssSetInputPortVectorDimension(S, 5, 200);
+    ssSetInputPortVectorDimension(S, 5, 80);
     // ubu
-    ssSetInputPortVectorDimension(S, 6, 200);/* specify dimension information for the OUTPUT ports */
+    ssSetInputPortVectorDimension(S, 6, 80);/* specify dimension information for the OUTPUT ports */
     ssSetOutputPortVectorDimension(S, 0, 4 );
     ssSetOutputPortVectorDimension(S, 1, 1 );
     ssSetOutputPortVectorDimension(S, 2, 1 );

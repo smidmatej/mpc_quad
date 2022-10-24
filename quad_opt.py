@@ -223,18 +223,21 @@ class quad_optimizer:
         return self.yref, self.yref_N
 
 
-    def set_reference_trajectory(self, x_trajectory, u_trajectory=None):
+    def set_reference_trajectory(self, x_trajectory, u_trajectory=None, undersampling=1):
         """
         Passes x_trajectory to acados_ocp_solver. Acados_ocp_solver then tries to find the optimal control
-        :param: x_trajectory: x_trajectory has to have the same length as quad_opt.n_nodes
+        :param: x_trajectory: x_trajectory has to have the same length as quad_opt.n_node
+        :param: u_trajectory: u_trajectory has to have the same length as quad_opt.n_node
+        :param: oversampling: if x_trajectory has smaller sampling time then quad_opt.optimization_time, then undersample the signal to match the sampling time
         """
+        #breakpoint()
         if u_trajectory is None:
             u_trajectory = np.ones((self.n_nodes, 4))*0.16 # hover
 
         self.yref = np.empty((self.n_nodes, self.ny)) # prepare memory, N x ny 
         for j in range(self.n_nodes):
             #print(j)
-            self.yref[j,:] = np.concatenate((x_trajectory[j,:], u_trajectory[j,:])) # load desired trajectory into yref
+            self.yref[j,:] = np.concatenate((x_trajectory[j*undersampling,:], u_trajectory[j*undersampling,:])) # load desired trajectory into yref
             #print(yref[j,:])
             self.acados_ocp_solver.set(j, "yref", self.yref[j,:]) # supply desired trajectory to ocp
 
