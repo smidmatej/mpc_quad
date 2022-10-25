@@ -13,6 +13,7 @@ from utils import skew_symmetric, quaternion_to_euler, unit_quat, v_dot_q, quate
 import utils
 from quad_opt import quad_optimizer
 from save_dataset import save_trajectories_as_dict
+from trajectory_generation.generate_trajectory import create_trajectory_from_waypoints
 
 import pickle
     
@@ -37,17 +38,25 @@ def main():
     n_nodes = 20 # Prediction horizon number of timesteps in t_lookahead
 
 
-    # initial condition
 
+
+    # initial condition
     quad = Quadrotor3D(payload=False, drag=True) # Controlled plant 
     quad_opt = quad_optimizer(quad, t_horizon=t_lookahead, n_nodes=n_nodes, gpe=gpe) # computing optimal control over model of plant
 
+
+
+    # Generate trajectory as reference for the quadrotor
+    waypoint_filename = 'trajectory_generation/waypoints/waypoints1.csv'
+    output_trajectory_filename = 'trajectory_generation/trajectories/trajectory_sampled.csv'
+    v_max = 100.0
+    a_max = 100.0
+    create_trajectory_from_waypoints(waypoint_filename, output_trajectory_filename, v_max, a_max, quad_opt.optimization_dt)
+
+
     # Simulation runs for t_simulation seconds and MPC is calculated every quad_opt.optimization_dt
     Nopt = round(t_simulation/quad_opt.optimization_dt) # number of times MPC control is calculated steps
-    
     Nsim = round(t_simulation/simulation_dt)
-
-
 
 
     
@@ -62,7 +71,8 @@ def main():
     traj_dt = t_trajectory[1] - t_trajectory[0]
 
     undersampling = round(quad_opt.optimization_dt/(traj_dt))
-    yref, yref_N = quad_opt.set_reference_trajectory(x_trajectory, u_trajectory, undersampling=undersampling)
+    #undersampling = 1
+    yref, yref_N = quad_opt.set_reference_trajectory(x_trajectory, u_trajectory)
 
 
     x = np.array([0,0,0] + [1,0,0,0] + [0,0,0] + [0,0,0])
@@ -84,15 +94,15 @@ def main():
 
     # Set quad to start position
     quad.set_state(x)
-
+    print(f'Undersampling: {undersampling}')
     print(f'Duration of simulation={t_simulation}, Number of simulation steps={Nopt}')
     # IDEA : create a 3D array of Nopt, stateidx, n_node ## How to visualize?
     simulation_time = 0
     for i in tqdm(range(Nopt)):
         #print(simulation_time)
 
-        x_ref = utils.get_reference_chunk(x_trajectory, i, quad_opt.n_nodes)
-        yref, yref_N = quad_opt.set_reference_trajectory(x_ref, undersampling=undersampling)
+        x_ref = utils.get_reference_chunk(x_trajectory, i, quad_opt.n_nodes, undersample=undersampling)
+        yref, yref_N = quad_opt.set_reference_trajectory(x_ref)
 
 
         # I dont think I need to run optimization more times as with the case of new opt
@@ -166,10 +176,10 @@ def main():
     plt.plot(t, x_sim[:,4], 'g', linewidth=0.8)
     plt.plot(t, x_sim[:,5], 'b', linewidth=0.8)
     plt.plot(t, x_sim[:,6], 'c', linewidth=0.8)
-    plt.plot(t, yref_sim[:,3], 'r--', linewidth=0.8)
-    plt.plot(t, yref_sim[:,4], 'g--', linewidth=0.8)
-    plt.plot(t, yref_sim[:,5], 'b--', linewidth=0.8)
-    plt.plot(t, yref_sim[:,6], 'b--', linewidth=0.8)
+    plt.plot(t, yref_sim[:,3], 'r--', linewidth=1)
+    plt.plot(t, yref_sim[:,4], 'g--', linewidth=1)
+    plt.plot(t, yref_sim[:,5], 'b--', linewidth=1)
+    plt.plot(t, yref_sim[:,6], 'c--', linewidth=1)
     plt.title('Quaternion q')
 
     plt.subplot(243)

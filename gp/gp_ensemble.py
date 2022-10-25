@@ -81,6 +81,7 @@ class GPEnsemble:
             raise NotImplementedError
 
     def load(self, path, xyz=True):
+        print("Loading GPEnsemble from path: ", path)
         if xyz: 
             xyz_name = ['_x','_y','_z']
             # GPE contains 3 GPs, one for each dimension

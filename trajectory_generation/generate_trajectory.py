@@ -1,125 +1,48 @@
-#!/usr/bin/env python
-"""
-Script from https://github.com/whoenig/uav_trajectories
-All credit goes to https://github.com/ethz-asl/mav_trajectory_generation
-"""
-
+import os
+from . import uav_trajectory
 import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.gridspec as gridspec
-import argparse
-# import scipy.interpolate
-import scipy.optimize
-
-import uav_trajectory
-
-# computes the difference between current interpolation and desired values
-def func(coefficients, times, values, piece_length):
-  result = 0
-  i = 0
-  for t, value in zip(times, values):
-    if t > (i+1) * piece_length:
-      i = i + 1
-    estimate = np.polyval(coefficients[i*8:(i+1)*8], t - i * piece_length)
-    # print(coefficients[i*8:(i+1)*8], t - i * piece_length, estimate)
-    result += (value - estimate) ** 2 #np.sum((values - estimates) ** 2)
-  # print(coefficients, result)
-  return result
-
-# constraint to match values between spline pieces
-# def func_eq_constraint_val(coefficients, i, piece_length):
-#   result = 0
-#   end_val = np.polyval(coefficients[(i-1)*8:i*8], piece_length)
-#   start_val = np.polyval(coefficients[i*8:(i+1)*8], 0)
-#   return end_val - start_val
-
-def func_eq_constraint_der(coefficients, i, piece_length, order):
-  result = 0
-  last_der = np.polyder(coefficients[(i-1)*8:i*8], order)
-  this_der = np.polyder(coefficients[i*8:(i+1)*8], order)
-
-  end_val = np.polyval(last_der, piece_length)
-  start_val = np.polyval(this_der, 0)
-  return end_val - start_val
-
-def func_eq_constraint_der_value(coefficients, i, t, desired_value, order):
-  result = 0
-  der = np.polyder(coefficients[i*8:(i+1)*8], order)
-
-  value = np.polyval(der, t)
-  return value - desired_value
-
-# def func_eq_constraint(coefficients, tss, yawss):
-#   result = 0
-#   last_derivative = None
-#   for ts, yaws, i in zip(tss, yawss, range(0, len(tss))):
-#     derivative = np.polyder(coefficients[i*8:(i+1)*8])
-#     if last_derivative is not None:
-#       result += np.polyval(derivative, 0) - last_derivative
-#     last_derivative = np.polyval(derivative, tss[-1])
 
 
-  # # apply coefficients to trajectory
-  # for i,p in enumerate(traj.polynomials):
-  #   p.pyaw.p = coefficients[i*8:(i+1)*8]
-  # # evaluate at each timestep and compute the sum of squared differences
-  # result = 0
-  # for t,yaw in zip(ts,yaws):
-  #   e = traj.eval(t)
-  #   result += (e.yaw - yaw) ** 2
-  # return result
+def main():
+        
 
-def generate_trajectory(data, num_pieces):
-  piece_length = data[-1,0] / num_pieces
-
-  x0 = np.zeros(num_pieces * 8)
-
-  constraints = []
-  # piecewise values and derivatives have to match
-  for i in range(1, num_pieces):
-    for order in range(0, 4):
-      constraints.append({'type': 'eq', 'fun': func_eq_constraint_der, 'args': (i, piece_length, order)})
-
-  # zero derivative at the beginning and end
-  for order in range(1, 3):
-    constraints.append({'type': 'eq', 'fun': func_eq_constraint_der_value, 'args': (0, 0, 0, order)})
-    constraints.append({'type': 'eq', 'fun': func_eq_constraint_der_value, 'args': (num_pieces-1, piece_length, 0, order)})
+    waypoint_filename = 'waypoints/waypoints1.csv'
+    output_trajectory_filename = 'trajectories/trajectory_sampled.csv'
+    v_max = 20.0
+    a_max = 10.0
+    dt = 0.01
+    create_trajectory_from_waypoints(waypoint_filename, output_trajectory_filename, v_max, a_max, dt)
 
 
-  resX = scipy.optimize.minimize(func, x0, (data[:,0], data[:,1], piece_length), method="SLSQP", options={"maxiter": 1000}, 
-    constraints=constraints
-    )
-  resY = scipy.optimize.minimize(func, x0, (data[:,0], data[:,2], piece_length), method="SLSQP", options={"maxiter": 1000}, 
-    constraints=constraints
-    )
-  resZ = scipy.optimize.minimize(func, x0, (data[:,0], data[:,3], piece_length), method="SLSQP", options={"maxiter": 1000}, 
-    constraints=constraints
-    )
-
-  resYaw = scipy.optimize.minimize(func, x0, (data[:,0], data[:,4], piece_length), method="SLSQP", options={"maxiter": 1000}, 
-    constraints=constraints
-    )
-
-  traj = uav_trajectory.Trajectory()
-  traj.polynomials = [uav_trajectory.Polynomial4D(
-    piece_length, 
-    np.array(resX.x[i*8:(i+1)*8][::-1]),
-    np.array(resY.x[i*8:(i+1)*8][::-1]),
-    np.array(resZ.x[i*8:(i+1)*8][::-1]),
-    np.array(resYaw.x[i*8:(i+1)*8][::-1])) for i in range(0, num_pieces)]
+def create_trajectory_from_waypoints(waypoint_filename, output_trajectory_filename, v_max, a_max, dt=0.01):
+    polynom_filename = 'trajectory_generation/trajectories/polynomial_representation.csv'
     
-  traj.duration = data[-1,0]
-  return traj
+    print("Loading waypoints from file: {}".format(waypoint_filename))
+    print("Saving polynomial representation of trajectory to file: {}".format(polynom_filename))
+    print("Maximum velocity: {}".format(v_max))
+    print("Maximum acceleration: {}".format(a_max))
 
+    os.system('./trajectory_generation/genTrajectory -i '+ waypoint_filename + ' -o ' + polynom_filename + ' --v_max ' + str(v_max) + ' --a_max ' + str(a_max))
 
-if __name__ == "__main__":
-  parser = argparse.ArgumentParser()
-  parser.add_argument("input", type=str, help="CSV file containing time waypoints")
-  parser.add_argument("output", type=str, help="CSV file containing trajectory with updated yaw")
-  parser.add_argument("--pieces", type=int, default=5, help="number of pieces")
-  args = parser.parse_args()
+    traj = uav_trajectory.Trajectory()
+    print("Loading polynomial representation of trajectory from file: {}".format(polynom_filename))
+    traj.loadcsv(polynom_filename)
 
-  data = np.loadtxt(args.input, delimiter=',', skiprows=1)
-  traj = generate_trajectory(data, args.pieces)
-  traj.savecsv(args.output)
+    print(f'Saving sampled trajectory to file: {output_trajectory_filename} with dt={dt}')
+    save_evals_csv(traj,output_trajectory_filename, dt=dt)
+    
+
+def save_evals_csv(traj, filename, dt=0.01):
+
+    ts = np.arange(0, traj.duration, dt)
+    evals = np.empty((len(ts), 15))
+    for t, i in zip(ts, range(0, len(ts))):
+        e = traj.eval(t)
+        evals[i, 0:3]  = e.pos
+        evals[i, 3:6]  = e.vel
+        evals[i, 6:9]  = e.acc
+    data = np.concatenate((ts.reshape(-1,1), evals), axis=1)
+    np.savetxt(filename, data, fmt="%.6f", delimiter=",", header='t,x,y,z,vx,vy,vz,ax,ay,az')
+    
+if __name__ == '__main__':
+    main()

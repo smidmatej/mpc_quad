@@ -135,8 +135,8 @@ class GPR:
                 self.calculate_covariance_matrix(z_train, z_train, self.kernel) \
                 + (self.noise+1e-7)*np.identity(self.n_train))
         
-        print(f'Size of feature training data = {(self.n_train, self.z_dim)}')
-        print(f'Size of output training data = {self.n_train, self.z_dim}')
+        #print(f'Size of feature training data = {(self.n_train, self.z_dim)}')
+        #print(f'Size of output training data = {self.n_train, self.z_dim}')
 
 
     def predict(self, at_values_z, var=False, std=False, cov=False):

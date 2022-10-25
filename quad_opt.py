@@ -223,7 +223,7 @@ class quad_optimizer:
         return self.yref, self.yref_N
 
 
-    def set_reference_trajectory(self, x_trajectory, u_trajectory=None, undersampling=1):
+    def set_reference_trajectory(self, x_trajectory, u_trajectory=None):
         """
         Passes x_trajectory to acados_ocp_solver. Acados_ocp_solver then tries to find the optimal control
         :param: x_trajectory: x_trajectory has to have the same length as quad_opt.n_node
@@ -237,7 +237,7 @@ class quad_optimizer:
         self.yref = np.empty((self.n_nodes, self.ny)) # prepare memory, N x ny 
         for j in range(self.n_nodes):
             #print(j)
-            self.yref[j,:] = np.concatenate((x_trajectory[j*undersampling,:], u_trajectory[j*undersampling,:])) # load desired trajectory into yref
+            self.yref[j,:] = np.concatenate((x_trajectory[j,:], u_trajectory[j,:])) # load desired trajectory into yref
             #print(yref[j,:])
             self.acados_ocp_solver.set(j, "yref", self.yref[j,:]) # supply desired trajectory to ocp
 

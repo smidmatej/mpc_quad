@@ -909,19 +909,21 @@ def square_trajectory(n=10, dt=0.1, v=3):
 
 
 def get_reference_chunk(reference_trajectory, current_idx, control_nodes, undersample=1):
-    
-    nodes_left_in_trajectory = reference_trajectory.shape[0] - current_idx
-    if nodes_left_in_trajectory > control_nodes:
+    sample_idx = current_idx*undersample
+    samples_left_in_trajectory = reference_trajectory.shape[0] - sample_idx
+    #breakpoint()
+    if samples_left_in_trajectory/undersample > control_nodes:
         # Not at the end of the trajectory, just pass the next chunk
-        reference_chunk = reference_trajectory[current_idx:current_idx+control_nodes:, :]
-
+        reference_chunk = reference_trajectory[sample_idx:sample_idx+control_nodes*undersample:undersample, :]
+        #print(f'reference_chunk.shape: {reference_chunk.shape}')
+        #print(f'slice :{sample_idx:sample_idx+control_nodes:undersample]}')
     else:
         # I have less trajectory nodes than control_nodes
         last_pos = reference_trajectory[-1, :].reshape((1,-1))
-        last_pos_repeat = np.repeat(last_pos, repeats=control_nodes-nodes_left_in_trajectory, axis=0)
+        last_pos_repeat = np.repeat(last_pos, repeats=control_nodes-samples_left_in_trajectory/undersample, axis=0)
  
         # Chunk whats left of the trajectory
-        reference_left = reference_trajectory[current_idx:current_idx+nodes_left_in_trajectory, :]
+        reference_left = reference_trajectory[sample_idx:sample_idx+samples_left_in_trajectory*undersample, :]
         # and add the last pos of the trajectory at the end
         reference_chunk = np.concatenate((reference_left, last_pos_repeat))
 
