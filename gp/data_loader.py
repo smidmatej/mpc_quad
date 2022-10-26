@@ -20,7 +20,7 @@ def load_dict(filename_):
 
 
 class data_loader:
-    def __init__(self, filename, compute_reduction, number_of_training_samples):
+    def __init__(self, filename, compute_reduction=1, number_of_training_samples=10):
         
         self.dictionary = load_dict(filename)
         
@@ -33,6 +33,8 @@ class data_loader:
         self.v = self.dictionary['v'][1::compute_reduction,:]
         self.w = self.dictionary['w'][1::compute_reduction,:]
         self.u = self.dictionary['u'][1::compute_reduction,:]
+
+        self.t = self.dictionary['t'][1::compute_reduction]
         
         self.a_validation = self.dictionary['aero_drag'][1::compute_reduction]
         self.v_pred = self.dictionary['v_pred'][1::compute_reduction]

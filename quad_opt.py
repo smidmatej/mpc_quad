@@ -7,7 +7,7 @@ import mpl_toolkits.mplot3d.axes3d as p3
 from matplotlib import animation
 
 from quad import Quadrotor3D
-from utils import skew_symmetric, quaternion_to_euler, unit_quat, v_dot_q, quaternion_inverse
+from utils.utils import skew_symmetric, quaternion_to_euler, unit_quat, v_dot_q, quaternion_inverse
 
 import pdb
 
@@ -82,9 +82,9 @@ class quad_optimizer:
         #q_cost = np.array([10, 10, 10, 0.1, 0.1, 0.1, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]) # euler angles
         #q_cost = np.array([0, 1000, 1, 0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]) # euler angles
         
-        #q_cost = np.array([10, 10, 10] +  [0.1, 0.1, 0.1] + [0.05, 0.05, 0.05] + [0.05, 0.05, 0.05]) # ORIGINAL
+        q_cost = np.array([10, 10, 10] +  [0.1, 0.1, 0.1] + [0.05, 0.05, 0.05] + [0.05, 0.05, 0.05]) # ORIGINAL
 
-        q_cost = np.array([100, 100, 100] + [0.0, 0.0, 0.0] + [0.0, 0.0, 0.0] + [0.05, 0.05, 0.05]) # MPC doesnt care about linear or angular velocity
+        #q_cost = np.array([100, 100, 100] + [0.0, 0.0, 0.0] + [0.0, 0.0, 0.0] + [0.05, 0.05, 0.05]) # MPC doesnt care about linear or angular velocity
         # add one more weigth to account for the 4 quaternions instead of 3 EA
         q_diagonal = np.concatenate((q_cost[:3], np.mean(q_cost[3:6])[np.newaxis], q_cost[3:]))
         r_cost = np.array([0.1, 0.1, 0.1, 0.1]) # u cost (dim 4)
