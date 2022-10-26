@@ -3,7 +3,7 @@ Implementation of MPC controller for a quadrocopter model using python. This rep
 
 Using a python simulation, we tracked a trajectory using an MPC controller. The simulated quadcopter was subject to a quadratic air resistence term which the MPC prediction model does not have access to. This caused a difference between the predicted velocities and the actual velocities of the quadcopter. 
 
-$$\hat{a}_{\text{e}} = \frac{v_{\text{t}}-v_{\text{pred}}}{\Delta t}$$
+$$\hat{a}_{error} = \frac{v_{true}-v_{\text{pred}}}{\Delta t}$$
 
 
 Using a [Gaussian process](https://github.com/smidmatej/Gaussian-process) regression, we can fit the acceleration error in axis x to a velocity in x (and for y and z too). Regression allows us access to the mean function $m(v_x)$ and its variance $\text{var}(v_x)$. We use m(v_x) to predict drag acceleration experienced by the quadcopter.
