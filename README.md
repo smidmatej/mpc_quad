@@ -7,9 +7,7 @@ $$\hat{a}_{\text{error}} = \frac{v_{\text{true}}-v_{\text{pred}}}{\Delta t}$$
 
 
 Using a [Gaussian process](https://github.com/smidmatej/Gaussian-process) regression, we can fit the acceleration error in axis x to a velocity in x (and for y and z too). Regression allows us access to the mean function $m(v_x)$ and its variance $\text{var}(v_x)$. We use m(v_x) to predict drag acceleration experienced by the quadcopter.
-$$
-\hat{a}_{\text{drag}_x} = m(v_x)
-$$
+$$\hat{a}_{\text{drag}_x} = m(v_x)$$
 ![posterior_distribution_fit](docs/gpe_interpolation.jpg)
 
 
@@ -19,9 +17,7 @@ Since the MPC controller uses Acados for its predictions, to augment the predict
 
 The Gaussian process allows us its predictions to make better predictions with the MPC controller, especially at higher velocities, where air resistance becomes more of a factor.
 
-$$
-\ddot{\bm{x}} = f(\bm{x}) + \hat{\bm{a}}_{\text{drag}}
-$$
+$$\ddot{x} = f(\bm{x}) + \hat{a}_{\text{drag}}$$
 
 Using a MPC controller augmented with the Gaussian process, we are able to reach significantly higher speeds 
 ![quadcopter_flight](docs/drone_flight.gif)
