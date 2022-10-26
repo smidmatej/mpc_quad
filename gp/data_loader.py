@@ -1,5 +1,5 @@
 from numpy.random import default_rng
-from six.moves import cPickle as pickle #for performance
+import pickle as pkl
 rng = default_rng()
 
 import numpy as np
@@ -15,29 +15,37 @@ from warnings import warn
 
 def load_dict(filename_):
     with open(filename_, 'rb') as f:
-        ret_di = pickle.load(f)
+        ret_di = pkl.load(f)
     return ret_di
 
 
 class data_loader:
-    def __init__(self, filename, compute_reduction=1, number_of_training_samples=10):
+    def __init__(self, filename, sample_to_amount=False, amount_of_samples=0, compute_reduction=1, number_of_training_samples=10):
         
-        self.dictionary = load_dict(filename)
-        
+
         # takes every *compute_reduction* index along first axis 
         self.compute_reduction = compute_reduction
         self.number_of_training_samples = number_of_training_samples
-        
-        self.p = self.dictionary['p'][1::compute_reduction,:]
-        self.q = self.dictionary['q'][1::compute_reduction,:]
-        self.v = self.dictionary['v'][1::compute_reduction,:]
-        self.w = self.dictionary['w'][1::compute_reduction,:]
-        self.u = self.dictionary['u'][1::compute_reduction,:]
 
-        self.t = self.dictionary['t'][1::compute_reduction]
+        self.dictionary = load_dict(filename)
+        if sample_to_amount:
+            # compute compute_reduction so that we have amount_of_samples samples
+            self.compute_reduction = int(self.dictionary['p'].shape[0]/amount_of_samples)
+            print(f'compute_reduction = {self.compute_reduction}')
+        else:
+            self.compute_reduction = compute_reduction
+
+
+        self.p = self.dictionary['p'][1::self.compute_reduction,:]
+        self.q = self.dictionary['q'][1::self.compute_reduction,:]
+        self.v = self.dictionary['v'][1::self.compute_reduction,:]
+        self.w = self.dictionary['w'][1::self.compute_reduction,:]
+        self.u = self.dictionary['u'][1::self.compute_reduction,:]
+
+        self.t = self.dictionary['t'][1::self.compute_reduction]
         
-        self.a_validation = self.dictionary['aero_drag'][1::compute_reduction]
-        self.v_pred = self.dictionary['v_pred'][1::compute_reduction]
+        self.a_validation = self.dictionary['aero_drag'][1::self.compute_reduction]
+        self.v_pred = self.dictionary['v_pred'][1::self.compute_reduction]
         
         assert self.p.shape[0] > number_of_training_samples , f"Not enough samples for requested number of training samples, try reducting the compute_reduction"
 
