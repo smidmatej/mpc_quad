@@ -1,3 +1,4 @@
+from cProfile import label
 from math import ceil
 import sys
 import numpy as np
@@ -13,46 +14,63 @@ from quad import Quadrotor3D
 from utils.utils import skew_symmetric, quaternion_to_euler, unit_quat, v_dot_q, quaternion_inverse
 from utils import utils
 from quad_opt import quad_optimizer
-from utils.save_dataset import save_trajectories_as_dict
-from trajectory_generation.generate_trajectory import generate_random_waypoints, create_trajectory_from_waypoints
+from utils.save_dataset import *
+from trajectory_generation.generate_trajectory import generate_random_waypoints, create_trajectory_from_waypoints, generate_circle_trajectory_accelerating
 
 import pickle
     
+import argparse
     
 from gp.gp import *
 from gp.gp_ensemble import GPEnsemble
 
 def main():
 
-    # TODO: Implement testing with different air resistance cooefficients/functions together with training GPes
-    if len(sys.argv) > 1:
-        generate_new_trajectory = bool(sys.argv[1])
-        if generate_new_trajectory:
-            # Generate trajectory as reference for the quadrotor
-            # new trajectory
-            hsize = 10
-            num_waypoints = 10
-            waypoint_filename = 'trajectory_generation/waypoints/random_waypoints.csv'
-            generate_random_waypoints(waypoint_filename, hsize=hsize, num_waypoints=num_waypoints)
-
-    else:
-        # static trajectory
-        waypoint_filename = 'trajectory_generation/waypoints/static_waypoints.csv'
+ 
     
+    # Initialize parser
+    parser = argparse.ArgumentParser()
+    
+    # Adding optional argument
+
+    parser.add_argument("-o", "--output", type=str, required=False, default='data/simulated_flight', help="Output filename")
+    parser.add_argument("--gpe", type=int, required=True, help="Use trained GPE")
+    parser.add_argument("--trajectory", type=int, required=True, help = "Trajectory type to use : 0 - From file, 1 - Random Waypoints, 2 - Circle")
+
+    parser.add_argument("--v_max", type=float, required=True, help="Maximum velocity over trajectory") 
+    parser.add_argument("--a_max", type=float, required=True, help="Maximum acceleration over trajectory")
+    parser.add_argument("--show", type=int, required=False, default=1, help="plt.show() at the end of the script")
+    # Read arguments from command line
+    args = parser.parse_args()
+    
+        
+    # TODO: Implement testing with different air resistance cooefficients/functions together with training GPes
+
+    filename = args.output
+
+    if args.gpe:
+        ensemble_path = "gp/models/ensemble"
+        gpe = GPEnsemble(3)
+        gpe.load(ensemble_path)
+    else:
+        gpe = None
+
+
+
+
+
+    # This musnt be faster than the quad is capable of
+    # Max velocity and acceleration along the trajectory
+    v_max = args.v_max
+    a_max = args.a_max
+
+
 
     output_trajectory_filename = 'trajectory_generation/trajectories/trajectory_sampled.csv'
-    # Max velocity and acceleration along the trajectory
-    v_max = 30.0
-    a_max = 30.0
-    # This musnt be faster than the quad is capable of
 
-    # load GPE 
-    ensemble_path = "gp/models/ensemble"
-    gpe = GPEnsemble(3)
-    gpe.load(ensemble_path)
 
  
-    simulation_dt = 5e-4 # Timestep simulation for the physics
+    simulation_dt = 5e-3 # Timestep simulation for the physics
     # 5e-4 is a good value for the acados dt
 
     # MPC prediction horizon
@@ -60,22 +78,47 @@ def main():
     n_nodes = 10 # Prediction horizon number of timesteps in t_lookahead
 
 
-
-
     # initial condition
     quad = Quadrotor3D(payload=False, drag=True) # Controlled plant 
     quad_opt = quad_optimizer(quad, t_horizon=t_lookahead, n_nodes=n_nodes, gpe=gpe) # computing optimal control over model of plant
-
-
-
     
 
-    # Create trajectory from waypoints with the same dt as the MPC control frequency    
-    create_trajectory_from_waypoints(waypoint_filename, output_trajectory_filename, v_max, a_max, quad_opt.optimization_dt)
+
+    if args.trajectory == 0:
+        # static trajectory
+        waypoint_filename = 'trajectory_generation/waypoints/static_waypoints.csv'
+        # Create trajectory from waypoints with the same dt as the MPC control frequency    
+        create_trajectory_from_waypoints(waypoint_filename, output_trajectory_filename, v_max, a_max, quad_opt.optimization_dt)
+        # trajectory has a specific time step that I do not respect here
+        x_trajectory, t_trajectory = utils.load_trajectory(output_trajectory_filename)
     
 
-    # trajectory has a specific time step that I do not respect here
-    x_trajectory, t_trajectory = utils.load_trajectory('trajectory_generation/trajectories/trajectory_sampled.csv')
+
+    if args.trajectory == 1:
+        # Generate trajectory as reference for the quadrotor
+        # new trajectory
+        hsize = 10
+        num_waypoints = 10
+        waypoint_filename = 'trajectory_generation/waypoints/random_waypoints.csv'
+        generate_random_waypoints(waypoint_filename, hsize=hsize, num_waypoints=num_waypoints)
+        create_trajectory_from_waypoints(waypoint_filename, output_trajectory_filename, v_max, a_max, quad_opt.optimization_dt)
+
+        # trajectory has a specific time step that I do not respect here
+        x_trajectory, t_trajectory = utils.load_trajectory(output_trajectory_filename)
+
+    if args.trajectory == 2:
+        # Circle trajectory
+        radius = 10
+        number_of_turns = 3
+
+        circle_trajectory_filename = 'trajectory_generation/trajectories/circle_trajectory.csv'
+        generate_circle_trajectory_accelerating(circle_trajectory_filename, radius, v_max, number_of_turns=number_of_turns, t_max=30, dt=quad_opt.optimization_dt)
+        # trajectory has a specific time step that I do not respect here
+        x_trajectory, t_trajectory = utils.load_trajectory(circle_trajectory_filename)
+
+
+
+
     t_simulation = max(t_trajectory) # Simulation duration for this script
 
     # Simulation runs for t_simulation seconds and MPC is calculated every quad_opt.optimization_dt
@@ -109,7 +152,10 @@ def main():
     aero_drag_sim = np.empty((1, 3))*np.NaN
     GPE_pred_sim = np.empty((1, 3))*np.NaN
     u_sim = np.empty((1,4))*np.NaN
+    x_sim_body = np.zeros((1, x.shape[0]))
     yref_sim = np.empty((1, yref.shape[1]))*np.NaN
+
+    rmse_pos = np.zeros((1,))*0
 
     # Set quad to start position
     quad.set_state(x)
@@ -118,7 +164,7 @@ def main():
     # IDEA : create a 3D array of Nopt, stateidx, n_node ## How to visualize?
     simulation_time = 0
     for i in tqdm(range(Nopt)):
-
+        #print(f'rmse_pos={rmse_pos[-1]}')
         # Set the part of trajectory relevant for current time as the MPC reference
         x_ref = utils.get_reference_chunk(x_trajectory, i, quad_opt.n_nodes)
         yref, yref_N = quad_opt.set_reference_trajectory(x_ref)
@@ -149,23 +195,37 @@ def main():
             quad.update(u, simulation_dt)
             x = np.array(quad.get_state(quaternion=True, stacked=True)) # state at the next optim step
 
-            # x but in body frame referential
-            x_to_save = np.array(quad.get_state(quaternion=True, stacked=True, body_frame=True))
+
 
             # Save model aerodrag for GP validation, useful only when payload=False
-            x_body = quad.get_state(quaternion=True, stacked=False, body_frame=False) # in world frame because get_aero_drag takes world frame velocity
-            a_drag_body = quad.get_aero_drag(x_body, body_frame=True)
+            x_body_for_drag = quad.get_state(quaternion=True, stacked=False, body_frame=False) # in world frame because get_aero_drag takes world frame velocity
+            a_drag_body = quad.get_aero_drag(x_body_for_drag, body_frame=True)
             
+            
+
+            x_world = np.array(quad.get_state(quaternion=True, stacked=True, body_frame=False)) # World frame referential
+            x_body = np.array(quad.get_state(quaternion=True, stacked=True, body_frame=True)) # Body frame referential
 
             # Save simulation results
             # Add current state to array for dataset creation and visualisation
             u_sim = np.append(u_sim, u.reshape((1, u.shape[0])), axis=0)
-            x_sim = np.append(x_sim, x_to_save.reshape((1, x_to_save.shape[0])), axis=0)
+
+            x_sim = np.append(x_sim, x_world.reshape((1, x_world.shape[0])), axis=0)
+            x_sim_body = np.append(x_sim_body, x_body.reshape((1, x_body.shape[0])), axis=0)
+            
             x_pred_sim = np.append(x_pred_sim, x_pred.reshape((1,x.shape[0])), axis=0)
             yref_now = yref[0,:]
             yref_sim = np.append(yref_sim, yref_now.reshape((1, yref_now.shape[0])), axis=0)
             aero_drag_sim = np.append(aero_drag_sim, a_drag_body.reshape((1, a_drag_body.shape[0])), axis=0)
 
+            #print(f' x={x}')
+            #print(f'yref_now={yref_now}')
+            rmse_pos_now = np.sqrt(np.mean((yref_now[:3] - x[:3])**2))
+            #print(f'rmse_pos_now={rmse_pos_now}')
+            #break
+            
+
+            rmse_pos = np.append(rmse_pos, rmse_pos_now)
             # Counts until the next MPC optimization step is reached
             control_time += simulation_dt
         # Counts until simulation is finished
@@ -180,8 +240,40 @@ def main():
     #file.close()
 
     # New way of saving data 
-    save_trajectories_as_dict(x_sim, u_sim, x_pred_sim, aero_drag_sim, t, simulation_dt, 'data/simulated_flight.pkl')
+    #save_trajectories_as_dict(x_sim, u_sim, x_pred_sim, aero_drag_sim, t, simulation_dt, 'data/simulated_flight.pkl')
 
+    data = dict()
+
+    # measured state
+    data['p'] = x_sim[:,0:3]
+    data['q'] = x_sim[:,3:7]
+    data['v'] = x_sim[:,7:10]
+    data['w'] = x_sim[:,10:13]
+
+    data['gpe'] = args.gpe
+    data['rmse_pos'] = rmse_pos
+
+    data['u'] = u
+    data['aero_drag'] = aero_drag_sim
+
+    # predicted state
+    data['p_pred'] = x_pred_sim[:,0:3]
+    data['q_pred'] = x_pred_sim[:,3:7]
+    data['v_pred'] = x_pred_sim[:,7:10]
+    data['w_pred'] = x_pred_sim[:,10:13]
+
+    # need the dt to calculate a_error
+    data['dt'] = simulation_dt
+    data['t'] = t
+
+
+    save_dict(data, filename) 
+
+
+    fig = plt.figure(figsize=(10,6), dpi=100)
+    plt.plot(t, x_sim_body[:,7], 'r', linewidth=0.8)
+    plt.plot(t, x_sim_body[:,8], 'g', linewidth=0.8)
+    plt.plot(t, x_sim_body[:,9], 'b', linewidth=0.8)
 
     fig = plt.figure(figsize=(10,6), dpi=100)
     plt.subplot(241)
@@ -209,9 +301,15 @@ def main():
     plt.plot(t, x_sim[:,7], 'r', linewidth=0.8)
     plt.plot(t, x_sim[:,8], 'g', linewidth=0.8)
     plt.plot(t, x_sim[:,9], 'b', linewidth=0.8)
+    plt.plot(t, np.linalg.norm(x_sim[:,7:10], axis=1), 'c', linewidth=0.8, label='vmax')
+    plt.plot(t, -np.linalg.norm(x_sim[:,7:10], axis=1), 'c', linewidth=0.8, label='vmax')
     plt.plot(t, yref_sim[:,7], 'r--', linewidth=0.8)
     plt.plot(t, yref_sim[:,8], 'g--', linewidth=0.8)
     plt.plot(t, yref_sim[:,9], 'b--', linewidth=0.8)
+    plt.plot(t, np.linalg.norm(yref_sim[:,7:10], axis=1), 'c--', linewidth=0.8, label='vmax_ref')
+    plt.plot(t, -np.linalg.norm(yref_sim[:,7:10], axis=1), 'c--', linewidth=0.8, label='vmax_ref')
+
+
     plt.title('velocity xyz')
 
     plt.subplot(244)
@@ -242,11 +340,17 @@ def main():
     plt.plot(cost_solutions, linewidth=0.8)
     #plt.plot([quad_opt.optimization_dt]*len(solution_times))
     plt.title('Cost of solution')
+
+    plt.subplot(248)
+    plt.plot(rmse_pos, linewidth=0.8)
+    #plt.plot([quad_opt.optimization_dt]*len(solution_times))
+    plt.title('Position RMSE')
     #plt.legend(('MPC solution time', 'quad_opt.optimization_dt'))
     
     
     plt.tight_layout()
-    plt.show()
+    if args.show:
+        plt.show()
 
     
 

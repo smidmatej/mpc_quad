@@ -80,30 +80,42 @@ class Quadrotor3D:
 
 	def get_state(self, quaternion=False, stacked=False, body_frame=False):
 
-		if quaternion and not stacked and not body_frame:
-			return [self.pos, self.angle, self.vel, self.a_rate]
-		if quaternion and stacked and not body_frame:
-			return [self.pos[0], self.pos[1], self.pos[2], self.angle[0], self.angle[1], self.angle[2], self.angle[3],
+
+		if body_frame:
+			v_b = v_dot_q(self.vel, quaternion_inverse(self.angle)) # body frame velocity
+
+			if quaternion and not stacked:
+				return [self.pos, self.angle, v_b, self.a_rate]
+
+			if quaternion and stacked:
+				return [self.pos[0], self.pos[1], self.pos[2], self.angle[0], self.angle[1], self.angle[2], self.angle[3],
+				v_b[0], v_b[1], v_b[2], self.a_rate[0], self.a_rate[1], self.a_rate[2]]
+
+		else:
+
+
+			if quaternion and not stacked:
+				return [self.pos, self.angle, self.vel, self.a_rate]
+
+			if quaternion and stacked:
+				return [self.pos[0], self.pos[1], self.pos[2], self.angle[0], self.angle[1], self.angle[2], self.angle[3],
+						self.vel[0], self.vel[1], self.vel[2], self.a_rate[0], self.a_rate[1], self.a_rate[2]]
+
+			angle = quaternion_to_euler(self.angle) # Euler angles
+			if not quaternion and stacked :
+				return [self.pos[0], self.pos[1], self.pos[2], angle[0], angle[1], angle[2],
 					self.vel[0], self.vel[1], self.vel[2], self.a_rate[0], self.a_rate[1], self.a_rate[2]]
 
-		v_b = v_dot_q(self.vel, quaternion_inverse(self.angle))
-		if quaternion and not stacked and body_frame :
-			return [self.pos, self.angle, v_b, self.a_rate]
+			if not quaternion and not stacked:
+				return [self.pos, angle, self.vel, self.a_rate]
 
-		if quaternion and stacked and body_frame:
-			
-			return [self.pos[0], self.pos[1], self.pos[2], self.angle[0], self.angle[1], self.angle[2], self.angle[3],
-			v_b[0], v_b[1], v_b[2], self.a_rate[0], self.a_rate[1], self.a_rate[2]]
-
-		angle = quaternion_to_euler(self.angle)
+		
 
 
-		if not quaternion and stacked and not body_frame:
-			return [self.pos[0], self.pos[1], self.pos[2], angle[0], angle[1], angle[2],
-				self.vel[0], self.vel[1], self.vel[2], self.a_rate[0], self.a_rate[1], self.a_rate[2]]
+		
 
-		if not quaternion and not stacked and not body_frame :
-			return [self.pos, angle, self.vel, self.a_rate]
+
+
 
 
 
@@ -152,7 +164,6 @@ class Quadrotor3D:
 		:return: acceleration vector length 3
 		"""
 		if self.drag:
-			#breakpoint()
 			# Transform velocity to body frame
 			v_b = v_dot_q(x[2], quaternion_inverse(x[1]))[:, np.newaxis]
 			# Compute aerodynamic drag acceleration in world frame
