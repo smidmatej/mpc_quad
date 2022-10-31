@@ -33,30 +33,22 @@ def main():
     #create_trajectory_from_waypoints(waypoint_filename, output_trajectory_filename, v_max, a_max, dt)
 
 
-def generate_circle_trajectory_accelerating(filename, radius, v_max, number_of_turns=3, t_max=10, dt=0.01):
-    x0 = np.array([0.0, 0.0, 0.0])
-
-
-
-
-
-    
+def generate_circle_trajectory_accelerating(filename, radius, v_max, t_max=10, dt=0.01):
     ts = np.arange(0, t_max, dt)
     p = np.empty((len(ts), 3))
     v = np.empty((len(ts), 3))
     a = np.empty((len(ts), 3))
-    v_norm = np.empty((len(ts)))
+    w = np.empty((len(ts)))
     for i, t in zip(range(len(ts)), ts):
-        # I am sorry for this
-        v_norm[i] = int((i+len(ts)/float(number_of_turns))/float(len(ts))*number_of_turns)/number_of_turns  * v_max/radius
 
-        v_norm[i] = (i+1)/float(len(ts)) * v_max/radius
+        # I have no idea why the 2 is needed here
+        w[i] = (i+1)/float(len(ts)) * v_max/radius/2
 
-        p[i, :] = np.array([radius * np.cos(v_norm[i] * t), radius * np.sin(v_norm[i] * t), 0]) + np.array([-radius, 0.0, 0.0])
-        v[i, :] = np.array([-radius*v_norm[i] * np.sin(v_norm[i] * t), radius*v_norm[i] * np.cos(v_norm[i] * t), 0])
-        a[i, :] = np.array([-radius*v_norm[i]*v_norm[i] * np.cos(v_norm[i] * t), -radius*v_norm[i]*v_norm[i] * np.sin(v_norm[i] * t), 0])
+        p[i, :] = np.array([radius * np.cos(w[i] * t), radius * np.sin(w[i] * t), 0]) + np.array([-radius, 0.0, 0.0])
+        v[i, :] = np.array([-radius*w[i] * np.sin(w[i] * t), radius*w[i] * np.cos(w[i] * t), 0])*2 # and also here
+        a[i, :] = np.array([-radius*w[i]*w[i] * np.cos(w[i] * t), -radius*w[i]*w[i] * np.sin(w[i] * t), 0])*2*2
 
-    #print(f'v_norm = {v_norm}')
+    #print(f'w = {w}')
     data = np.concatenate((ts.reshape(-1,1), p, v, a), axis=1)
 
     np.savetxt(filename, data, fmt="%.6f", delimiter=",", header='t,x,y,z,vx,vy,vz,ax,ay,az')

@@ -8,7 +8,9 @@ import matplotlib as style
 from matplotlib import gridspec
 import matplotlib.colors as colors
 from tqdm import tqdm
-
+from matplotlib.collections import LineCollection
+from matplotlib.colors import ListedColormap, BoundaryNorm
+import seaborn as sns
 
 def update(i):
     #particle.set_data(x[i],y[i])
@@ -17,7 +19,7 @@ def update(i):
     particle.set_data_3d(position[i,0], position[i,1], position[i,2])
 
     # Visited positions
-    traj.set_data_3d(position[:i+1,0], position[:i+1,1], position[:i+1,2])
+    traj, = ax.plot(position[i:i+2,0], position[i:i+2,1], position[i:i+2,2], color=plt.cm.jet(speed[i]/max(speed)), linewidth=0.8)
 
     # orientation
     vector_up.set_data_3d(np.array([position[i,0], position[i,0] + body_up[i,0]]), \
@@ -26,6 +28,10 @@ def update(i):
 
     # Norm of veloctity to plot to a different ax
     v_traj.set_data(t[:i+1], speed[:i+1])
+
+    if i < frames:
+        # dp_norm is a diff, missing the last value
+        dp_traj.set_data(t[:i+1], dp_norm[:i+1])
     #v_traj.x = t[:i+1]
     #v_traj.y = speed[:i+1]
 
@@ -39,11 +45,13 @@ def update(i):
 
 
 
+
+
 plt.style.use('fast')
+sns.set_style("whitegrid")
 
-
-trajectory_filename = 'data/simulated_flight.pkl'
-frames = 30
+trajectory_filename = 'data/sim_1_trajectory2_v_max20_a_max10.pkl'
+frames = 100
 
 dloader = data_loader(trajectory_filename, sample_to_amount=True, amount_of_samples=frames)
 
@@ -59,6 +67,10 @@ max_lim = max(max(position[:,0]), max(position[:,1]), max(position[:,2]))
 
 
 speed = np.linalg.norm(dloader.v, axis=1)
+
+dp = np.diff(position, axis=0)/np.diff(dloader.t)[:,None]
+#dp = np.diff(position, axis=0)/dloader.dictionary['dt'] # Does not work beccause of compute reduction
+dp_norm = np.linalg.norm(dp, axis=1)
 
 # Up arrow us just for visualization, dont want it to be too big/small
 up_arrow_length = (max_lim - min_lim)/5
@@ -96,6 +108,7 @@ ax.zaxis.pane.set_edgecolor('k')
 
 particle, = plt.plot([],[], marker='o', color=cs[1])
 vector_up, = plt.plot([],[], color=cs[3])
+
 traj, = plt.plot([],[], color=cs[0], alpha=0.5)
 
 
@@ -124,6 +137,7 @@ ax_control.legend(('u0', 'u1', 'u2', 'u3'), loc='upper right')
 
 ax_speed = fig.add_subplot(gs[1,1])
 v_traj, = plt.plot([],[], color=cs[0])
+dp_traj, = plt.plot([],[], color=cs[0])
 ax_speed.set_xlim((0, max(t)))
 ax_speed.set_ylim((0, max(speed)))
 ax_speed.set_xlabel('Time [s]')
@@ -140,10 +154,10 @@ print(f'Number of frames: {number_of_frames}, fps: {1000/interval}, duration: {n
 
 pbar = tqdm(total=frames)
     #pbar.update()
-ani = animation.FuncAnimation(fig, update, frames=number_of_frames, interval=interval)
-            
+ani = animation.FuncAnimation(fig, update, frames=number_of_frames, interval=interval)           
+#pbar.close()
 
 ani.save('animations/my_animation.mp4')
 #ani.save('docs/drone_flight.gif')
 
-#plt.show()
+plt.show()

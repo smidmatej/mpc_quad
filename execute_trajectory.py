@@ -8,6 +8,7 @@ from acados_template import AcadosOcp, AcadosOcpSolver, AcadosModel
 import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d.axes3d as p3
 from matplotlib import animation
+import seaborn as sns
 from tqdm import tqdm
 
 from quad import Quadrotor3D
@@ -33,7 +34,7 @@ def main():
     
     # Adding optional argument
 
-    parser.add_argument("-o", "--output", type=str, required=False, default='data/simulated_flight', help="Output filename")
+    parser.add_argument("-o", "--output", type=str, required=False, default='data/simulated_flight.pkl', help="Output filename")
     parser.add_argument("--gpe", type=int, required=True, help="Use trained GPE")
     parser.add_argument("--trajectory", type=int, required=True, help = "Trajectory type to use : 0 - From file, 1 - Random Waypoints, 2 - Circle")
 
@@ -45,8 +46,6 @@ def main():
     
         
     # TODO: Implement testing with different air resistance cooefficients/functions together with training GPes
-
-    filename = args.output
 
     if args.gpe:
         ensemble_path = "gp/models/ensemble"
@@ -108,11 +107,11 @@ def main():
 
     if args.trajectory == 2:
         # Circle trajectory
-        radius = 10
-        number_of_turns = 3
+        radius = 50
+        t_max = 30
 
         circle_trajectory_filename = 'trajectory_generation/trajectories/circle_trajectory.csv'
-        generate_circle_trajectory_accelerating(circle_trajectory_filename, radius, v_max, number_of_turns=number_of_turns, t_max=30, dt=quad_opt.optimization_dt)
+        generate_circle_trajectory_accelerating(circle_trajectory_filename, radius, v_max, t_max=t_max, dt=quad_opt.optimization_dt)
         # trajectory has a specific time step that I do not respect here
         x_trajectory, t_trajectory = utils.load_trajectory(circle_trajectory_filename)
 
@@ -249,11 +248,13 @@ def main():
     data['q'] = x_sim[:,3:7]
     data['v'] = x_sim[:,7:10]
     data['w'] = x_sim[:,10:13]
+    # body frame velocity
+    data['v_body'] = x_sim_body[:,7:10]
 
     data['gpe'] = args.gpe
     data['rmse_pos'] = rmse_pos
 
-    data['u'] = u
+    data['u'] = u_sim
     data['aero_drag'] = aero_drag_sim
 
     # predicted state
@@ -266,14 +267,17 @@ def main():
     data['dt'] = simulation_dt
     data['t'] = t
 
+    
+    save_dict(data, args.output)
+    print(f'Saved simulated data to {args.output}')
 
-    save_dict(data, filename) 
+    sns.set_style("whitegrid")
 
 
-    fig = plt.figure(figsize=(10,6), dpi=100)
-    plt.plot(t, x_sim_body[:,7], 'r', linewidth=0.8)
-    plt.plot(t, x_sim_body[:,8], 'g', linewidth=0.8)
-    plt.plot(t, x_sim_body[:,9], 'b', linewidth=0.8)
+    plt.figure()
+    plt.plot(x_sim_body[:,7], aero_drag_sim[:,0], 'r', label='aero_drag_x')
+    plt.plot(x_sim_body[:,8], aero_drag_sim[:,1], 'g', label='aero_drag_y')
+    plt.plot(x_sim_body[:,9], aero_drag_sim[:,2], 'b', label='aero_drag_z')
 
     fig = plt.figure(figsize=(10,6), dpi=100)
     plt.subplot(241)
@@ -308,9 +312,11 @@ def main():
     plt.plot(t, yref_sim[:,9], 'b--', linewidth=0.8)
     plt.plot(t, np.linalg.norm(yref_sim[:,7:10], axis=1), 'c--', linewidth=0.8, label='vmax_ref')
     plt.plot(t, -np.linalg.norm(yref_sim[:,7:10], axis=1), 'c--', linewidth=0.8, label='vmax_ref')
+    plt.plot(t, np.repeat(v_max, repeats=len(t)), 'k--', linewidth=0.8, label='vmax')
+    plt.plot(t, -np.repeat(v_max, repeats=len(t)), 'k--', linewidth=0.8, label='vmax')
 
 
-    plt.title('velocity xyz')
+    plt.title('Velocity xyz')
 
     plt.subplot(244)
     plt.plot(t, x_sim[:,10], 'r', linewidth=0.8)
@@ -342,13 +348,21 @@ def main():
     plt.title('Cost of solution')
 
     plt.subplot(248)
-    plt.plot(rmse_pos, linewidth=0.8)
+    plt.plot(t, aero_drag_sim[:,0], 'r', linewidth=0.8)
+    plt.plot(t, aero_drag_sim[:,1], 'g', linewidth=0.8)
+    plt.plot(t, aero_drag_sim[:,2], 'b', linewidth=0.8)
+    #plt.plot(rmse_pos, linewidth=0.8)
     #plt.plot([quad_opt.optimization_dt]*len(solution_times))
-    plt.title('Position RMSE')
+    #plt.title('Position RMSE')
     #plt.legend(('MPC solution time', 'quad_opt.optimization_dt'))
     
     
+    
     plt.tight_layout()
+
+    plot_filename = "img/trajectory_tracking.pdf"
+    plt.savefig(plot_filename, format="pdf", bbox_inches="tight")
+    print(f'Saved generated figure to {plot_filename}')
     if args.show:
         plt.show()
 

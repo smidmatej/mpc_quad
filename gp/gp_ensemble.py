@@ -1,4 +1,9 @@
-from gp.gp import GPR
+
+
+try:
+    from gp.gp import GPR
+except ImportError:
+    from gp import GPR
 import numpy as np
 import casadi as cs
 

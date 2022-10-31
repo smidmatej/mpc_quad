@@ -20,13 +20,12 @@ def load_dict(filename_):
 
 
 class data_loader:
-    def __init__(self, filename, sample_to_amount=False, amount_of_samples=0, compute_reduction=1, number_of_training_samples=10):
+    def __init__(self, filename, compute_reduction=1, number_of_training_samples=10,sample_to_amount=False, amount_of_samples=0, body_frame=False):
         
 
         # takes every *compute_reduction* index along first axis 
         self.compute_reduction = compute_reduction
         self.number_of_training_samples = number_of_training_samples
-
         self.dictionary = load_dict(filename)
         if sample_to_amount:
             # compute compute_reduction so that we have amount_of_samples samples
@@ -35,10 +34,14 @@ class data_loader:
         else:
             self.compute_reduction = compute_reduction
 
-
         self.p = self.dictionary['p'][1::self.compute_reduction,:]
         self.q = self.dictionary['q'][1::self.compute_reduction,:]
-        self.v = self.dictionary['v'][1::self.compute_reduction,:]
+        if body_frame:
+            # For training GPs
+            self.v = self.dictionary['v_body'][1::self.compute_reduction,:]
+        else:
+            # Not for training GPs
+            self.v = self.dictionary['v'][1::self.compute_reduction,:]
         self.w = self.dictionary['w'][1::self.compute_reduction,:]
         self.u = self.dictionary['u'][1::self.compute_reduction,:]
 
@@ -47,24 +50,14 @@ class data_loader:
         self.a_validation = self.dictionary['aero_drag'][1::self.compute_reduction]
         self.v_pred = self.dictionary['v_pred'][1::self.compute_reduction]
         
-        assert self.p.shape[0] > number_of_training_samples , f"Not enough samples for requested number of training samples, try reducting the compute_reduction"
-
+        assert self.p.shape[0] > number_of_training_samples , f"Not enough samples for requested number of training samples, \
+            self.p.shape = {self.p.shape}, number_of_training_samples = {number_of_training_samples}"
         # error in acceleration between measured and predicted is the regressed variable we are trying to estimate
         self.calculate_errors()
         
         self.z = np.concatenate((self.p, self.q, self.v, self.w, self.u),axis=1)
         
-        #self.data = np.concatenate((self.z, self.y, self.a_validation), axis=1) # concatenates along the state axis
-        
-        
-        # subsample further into *number_of_training_samples* samples for training
-        #self._n_sub = int(self.z.shape[0]/number_of_training_samples)
-        
-        #self.shuffle()
-        #print(self.z.shape)
-        #self.cluster_data()
-        # representatives['z'] are velocity x,y,z
-        # represantatives['y'] are the accelerations x,y,z that correspond to the sample velocities
+
         self.representatives = self.cluster_data_dimensions_concatenate([7,8,9], [0,1,2])
         
         

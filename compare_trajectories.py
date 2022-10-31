@@ -3,40 +3,60 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import os
+import json
 
 def main():
-    gpe = 1
-    v_max = 10
-    fname_first = 'data/simulation_gpe' + str(gpe) + 'v_max' + str(v_max) + '.pkl'
 
-    first = 'python execute_trajectory.py --gpe 1 --trajectory 0 --v_max 20 --a_max 20 --show 0'
-    second = 'python execute_trajectory.py --gpe 0 --new_trajectory 0 --v_max 20 --a_max 20 --show 0'
-    os.system(first)
-    os.system(second)
-    filename_no_gpe = 'data/simulated_flight_gpe0.pkl'
-    filename_gpe = 'data/simulated_flight_gpe1.pkl'
 
-    dict_no_gpe = load_dict(filename_no_gpe)
-    dict_gpe = load_dict(filename_gpe)
+    compare_config_file = 'comparisson_config.json'
+    with open(compare_config_file) as json_file:
+        config = json.load(json_file)
 
-    v_no_gpe = np.linalg.norm(dict_no_gpe['v'], axis=1)
-    v_max_no_gpe = np.max(v_no_gpe)
-    v_gpe = np.linalg.norm(dict_gpe['v'], axis=1)
-    v_max_gpe = np.max(v_gpe)
+    
+    keys = ['gpe', 'no_gpe']
+    mean_rmse_pos = dict.fromkeys(keys)
+    v_max = dict.fromkeys(keys)
+    for key in keys:
+        mean_rmse_pos[key] = [None]*len(config['runs'])
+        v_max[key] = [None]*len(config['runs'])
 
-    #breakpoint()
 
-    mean_rmse_pos_no_gpe = np.mean(dict_no_gpe['rmse_pos'])
-    mean_rmse_pos_gpe = np.mean(dict_gpe['rmse_pos'])
+    for n, run in zip(range(len(config['runs'])), config['runs']):
+        print(run)
+        simulation_result_fname = 'data/sim_' + str(run['gpe']) + '_trajectory' + str(run['trajectory']) + \
+                                    '_v_max' + str(run['v_max']) + '_a_max' + str(run['a_max']) + '.pkl'
 
-    print(f'v_max_no_gpe: {v_max_no_gpe}')
-    print(f'v_max_gpe: {v_max_gpe}')
-    print(f'mean_rmse_pos_no_gpe: {mean_rmse_pos_no_gpe}')
-    print(f'mean_rmse_pos_gpe: {mean_rmse_pos_gpe}')
+        os.system('python execute_trajectory.py -o ' + simulation_result_fname + ' --gpe ' + str(run['gpe']) + \
+                    ' --trajectory ' + str(run['trajectory']) + ' --v_max ' + str(run['v_max']) \
+                        + ' --a_max '+ str(run['a_max']) + ' --show 0')
 
+        
+        sim_result_dict = load_dict(simulation_result_fname)
+
+        # leave out the last second of the simulation, because it tries to stop in place
+        n_drop = int(1/sim_result_dict['dt'])
+        print(f'Dropping last {n_drop} samples')
+        v_norm = np.linalg.norm(sim_result_dict['v'][:-n_drop,:], axis=1)
+
+        connect_dict = {'gpe':1, 'no_gpe':0}
+        for key in keys:
+            if connect_dict[key] == run['gpe']:
+                v_max[key][n] = np.max(v_norm)
+                mean_rmse_pos[key][n] = np.mean(sim_result_dict['rmse_pos'][:-n_drop])
+
+
+
+
+
+        print(f'v_max: {v_max}')
+        print(f'mean_rmse_pos: {mean_rmse_pos}')
+
+
+    colors = {keys[0]: 'r', keys[1]: 'b'}
     plt.figure(figsize=(10,6), dpi=100)
-    plt.scatter(v_max_no_gpe, mean_rmse_pos_no_gpe, label='No GPE')
-    plt.scatter(v_max_gpe, mean_rmse_pos_gpe, label='GPE')
+    for key in keys:
+        plt.scatter(v_max[key], mean_rmse_pos[key], c=colors[key], label=key)
+
     plt.show()
 
 if __name__ == '__main__':
