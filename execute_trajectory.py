@@ -25,6 +25,11 @@ import argparse
 from gp.gp import *
 from gp.gp_ensemble import GPEnsemble
 
+
+
+
+#token = '5793137870:AAGN2y8dLZezvlf__O5yMvKlIlEDO9hTqJI'
+#schat_id = '5512359229'
 def main():
 
  
@@ -41,10 +46,13 @@ def main():
     parser.add_argument("--v_max", type=float, required=True, help="Maximum velocity over trajectory") 
     parser.add_argument("--a_max", type=float, required=True, help="Maximum acceleration over trajectory")
     parser.add_argument("--show", type=int, required=False, default=1, help="plt.show() at the end of the script")
+    parser.add_argument("-pf", "--plot_filename", type=str, required=False, default="img/trajectory_tracking.pdf", help="Save filename for plot")
+
+    
     # Read arguments from command line
     args = parser.parse_args()
     
-        
+    
     # TODO: Implement testing with different air resistance cooefficients/functions together with training GPes
 
     if args.gpe:
@@ -74,7 +82,7 @@ def main():
 
     # MPC prediction horizon
     t_lookahead = 1 # Prediction horizon duration
-    n_nodes = 10 # Prediction horizon number of timesteps in t_lookahead
+    n_nodes = 50 # Prediction horizon number of timesteps in t_lookahead
 
 
     # initial condition
@@ -96,7 +104,7 @@ def main():
     if args.trajectory == 1:
         # Generate trajectory as reference for the quadrotor
         # new trajectory
-        hsize = 10
+        hsize = 100 # halfsize of the cube in which to generate the waypoints
         num_waypoints = 10
         waypoint_filename = 'trajectory_generation/waypoints/random_waypoints.csv'
         generate_random_waypoints(waypoint_filename, hsize=hsize, num_waypoints=num_waypoints)
@@ -273,11 +281,12 @@ def main():
 
     sns.set_style("whitegrid")
 
-
+    '''
     plt.figure()
     plt.plot(x_sim_body[:,7], aero_drag_sim[:,0], 'r', label='aero_drag_x')
     plt.plot(x_sim_body[:,8], aero_drag_sim[:,1], 'g', label='aero_drag_y')
     plt.plot(x_sim_body[:,9], aero_drag_sim[:,2], 'b', label='aero_drag_z')
+    '''
 
     fig = plt.figure(figsize=(10,6), dpi=100)
     plt.subplot(241)
@@ -360,9 +369,9 @@ def main():
     
     plt.tight_layout()
 
-    plot_filename = "img/trajectory_tracking.pdf"
-    plt.savefig(plot_filename, format="pdf", bbox_inches="tight")
-    print(f'Saved generated figure to {plot_filename}')
+    
+    plt.savefig(args.plot_filename, format="pdf", bbox_inches="tight")
+    print(f'Saved generated figure to {args.plot_filename}')
     if args.show:
         plt.show()
 

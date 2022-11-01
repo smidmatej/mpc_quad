@@ -12,7 +12,7 @@ def main():
 
     training_dataset = '../data/training_dataset.pkl'
     compute_reduction = 1
-    n_training_samples = 10
+    n_training_samples = 20
 
     d_loader = data_loader(training_dataset, compute_reduction=compute_reduction, number_of_training_samples=n_training_samples, body_frame=True)               
 
@@ -41,7 +41,7 @@ def main():
     gpe.fit()
     y_pred = gpe.predict(z_train)
 
-    z_query = np.concatenate([np.arange(-20,20,0.5).reshape(-1,1) for i in range(3)], axis=1)
+    z_query = np.concatenate([np.arange(-30,30,0.5).reshape(-1,1) for i in range(3)], axis=1)
     y_query, std_query = gpe.predict(z_query, std=True)
 
 
